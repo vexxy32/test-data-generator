@@ -42,7 +42,7 @@ Run this command from the project folder:
 .\build-release.ps1
 ```
 
-The script runs the tests, builds the application, and creates `release/test-data-generator-windows.zip`. Attach that ZIP file to a GitHub Release. A Windows user only needs to download the ZIP, extract it, and run `TestDataGenerator.exe`.
+The script runs the tests, builds the application, and creates `release/test-data-generator-windows.zip`. When a new version is needed, update `VERSION` and push to `main`; GitHub Actions runs the same script and publishes the ZIP as a GitHub Release. A Windows user only needs to download the ZIP, extract it, and run `TestDataGenerator.exe`.
 
 ## Example output
 
