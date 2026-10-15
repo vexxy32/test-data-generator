@@ -34,4 +34,3 @@ func TestExportToFileKeepsPreviousResult(t *testing.T) {
 		t.Fatalf("unexpected JSON: %s", data)
 	}
 }
-

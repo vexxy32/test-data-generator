@@ -33,4 +33,3 @@ func TestGenerateRecords(t *testing.T) {
 		}
 	}
 }
-

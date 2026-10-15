@@ -57,4 +57,3 @@ func exportToDirectory(records []map[string]any, fileName, outputDir string) (st
 	}
 	return path, nil
 }
-

@@ -556,4 +556,3 @@ func (m model) View() tea.View {
 
 	return tea.NewView(screen.String())
 }
-

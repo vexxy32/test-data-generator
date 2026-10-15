@@ -71,4 +71,3 @@ func generateRecords(fields []FieldDefinition, count int) []map[string]any {
 
 	return records
 }
-

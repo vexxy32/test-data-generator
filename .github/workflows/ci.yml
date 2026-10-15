@@ -19,4 +19,3 @@ jobs:
         run: go test ./...
       - name: Build Windows application
         run: go build -o TestDataGenerator.exe .
-

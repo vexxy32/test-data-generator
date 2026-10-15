@@ -72,4 +72,3 @@ The script runs the tests, builds the application, and creates `release/test-dat
 ## License
 
 MIT
-
