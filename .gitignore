@@ -1,0 +1,12 @@
+# JetBrains IDE settings
+.idea/
+
+# Built application
+*.exe
+
+# Generated test data
+output/
+generated_tests.json
+
+# Release packages created locally
+release/
