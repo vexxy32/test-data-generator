@@ -36,6 +36,7 @@ jobs:
           } else {
             "exists=false" >> $env:GITHUB_OUTPUT
           }
+          $global:LASTEXITCODE = 0
       - name: Build and test
         if: steps.version.outputs.exists == 'false'
         shell: pwsh
