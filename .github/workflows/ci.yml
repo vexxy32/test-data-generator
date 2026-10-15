@@ -1,0 +1,22 @@
+name: Build and test
+
+on:
+  push:
+  pull_request:
+
+permissions:
+  contents: read
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Test
+        run: go test ./...
+      - name: Build Windows application
+        run: go build -o TestDataGenerator.exe .
+
