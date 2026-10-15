@@ -1,0 +1,49 @@
+name: Publish Windows release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+
+concurrency:
+  group: windows-release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-go@v7
+        with:
+          go-version-file: go.mod
+      - name: Check version
+        id: version
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $version = (Get-Content VERSION -Raw).Trim()
+          if ($version -notmatch '^v\d+\.\d+\.\d+$') {
+            throw "VERSION must look like v1.2.3"
+          }
+          "tag=$version" >> $env:GITHUB_OUTPUT
+          gh release view $version --repo $env:GITHUB_REPOSITORY *> $null
+          if ($LASTEXITCODE -eq 0) {
+            "exists=true" >> $env:GITHUB_OUTPUT
+          } else {
+            "exists=false" >> $env:GITHUB_OUTPUT
+          }
+      - name: Build and test
+        if: steps.version.outputs.exists == 'false'
+        shell: pwsh
+        run: .\build-release.ps1
+      - name: Publish release
+        if: steps.version.outputs.exists == 'false'
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh release create '${{ steps.version.outputs.tag }}' '.\release\test-data-generator-windows.zip' --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Test Data Generator ${{ steps.version.outputs.tag }}" --notes "Windows build. Download the ZIP, extract it, and run TestDataGenerator.exe. Source code is available in this repository."
