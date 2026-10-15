@@ -61,7 +61,7 @@ The script runs the tests, builds the application, and creates `release/test-dat
 
 ## Controls
 
-- `Tab` or arrow keys: move between fields.
+- `Tab`, `↑`, or `↓`: move between form fields; `↑` and `↓` also select a field in the schema list.
 - `+`: add or save a field.
 - `E`: edit the selected field.
 - `Delete`: delete the selected field.
