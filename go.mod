@@ -1,4 +1,4 @@
-module testsGenerator
+module github.com/vexxy32/test-data-generator
 
 go 1.27
 

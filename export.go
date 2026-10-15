@@ -10,6 +10,10 @@ import (
 )
 
 func exportToFile(records []map[string]any, fileName string) (string, error) {
+	return exportToDirectory(records, fileName, "output")
+}
+
+func exportToDirectory(records []map[string]any, fileName, outputDir string) (string, error) {
 	fileName = strings.TrimSpace(fileName)
 	if fileName == "" {
 		return "", errors.New("укажи имя файла")
@@ -26,12 +30,12 @@ func exportToFile(records []map[string]any, fileName string) (string, error) {
 		return "", errors.New("используй расширение .json или не указывай расширение")
 	}
 
-	if err := os.MkdirAll("output", 0755); err != nil {
-		return "", fmt.Errorf("не удалось создать папку output: %w", err)
+	if err := os.MkdirAll(outputDir, 0755); err != nil {
+		return "", fmt.Errorf("не удалось создать папку %s: %w", outputDir, err)
 	}
 
 	nameWithoutExtension := strings.TrimSuffix(fileName, extension)
-	path := filepath.Join("output", fileName)
+	path := filepath.Join(outputDir, fileName)
 	for copyNumber := 2; ; copyNumber++ {
 		_, err := os.Stat(path)
 		if errors.Is(err, os.ErrNotExist) {
@@ -40,7 +44,7 @@ func exportToFile(records []map[string]any, fileName string) (string, error) {
 		if err != nil {
 			return "", fmt.Errorf("не удалось проверить файл: %w", err)
 		}
-		path = filepath.Join("output", fmt.Sprintf("%s_%d%s", nameWithoutExtension, copyNumber, extension))
+		path = filepath.Join(outputDir, fmt.Sprintf("%s_%d%s", nameWithoutExtension, copyNumber, extension))
 	}
 
 	data, err := json.MarshalIndent(records, "", "  ")

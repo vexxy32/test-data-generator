@@ -9,7 +9,16 @@ New-Item -ItemType Directory -Force -Path $releaseDirectory | Out-Null
 
 Push-Location $projectDirectory
 try {
+    go test ./...
+    if ($LASTEXITCODE -ne 0) {
+        throw "Tests failed; release archive was not updated."
+    }
+
     go build -o $executablePath .
+    if ($LASTEXITCODE -ne 0) {
+        throw "Build failed; release archive was not updated."
+    }
+
     Compress-Archive -LiteralPath $executablePath -DestinationPath $archivePath -Force
 } finally {
     Pop-Location
