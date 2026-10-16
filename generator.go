@@ -3,14 +3,11 @@ package main
 import (
 	"math"
 	"math/rand/v2"
+
+	"github.com/vexxy32/test-data-generator/internal/schema"
 )
 
-type FieldDefinition struct {
-	Name string
-	Type string
-	Min  float64
-	Max  float64
-}
+type FieldDefinition = schema.FieldDefinition
 
 func generateValue(field FieldDefinition) any {
 	switch field.Type {
