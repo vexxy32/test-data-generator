@@ -39,7 +39,11 @@ func TestFormConnectsGenerationAndExport(t *testing.T) {
 
 	m.countInput.SetValue("3")
 	m.fileNameInput.SetValue("sample")
-	m.generate()
+	m.preview()
+	if !generated || exported || m.outputPath != "" {
+		t.Fatalf("preview failed: generated=%v exported=%v path=%q", generated, exported, m.outputPath)
+	}
+	m.savePreview()
 	if !generated || !exported || m.outputPath != wantPath || m.statusIsError {
 		t.Fatalf("generation/export failed: generated=%v exported=%v path=%q status=%q", generated, exported, m.outputPath, m.status)
 	}

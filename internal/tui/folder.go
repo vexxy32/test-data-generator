@@ -23,6 +23,8 @@ func openOutputFolder(path string) tea.Cmd {
 		default:
 			return folderOpenedMsg{err: fmt.Errorf("открытие папки не поддерживается в %s", runtime.GOOS)}
 		}
-		return folderOpenedMsg{err: command.Run()}
+		// Explorer may return exit status 1 after successfully opening a window.
+		// Starting the process is enough: the terminal app does not need to wait for it.
+		return folderOpenedMsg{err: command.Start()}
 	}
 }

@@ -13,14 +13,16 @@ const (
 	typeStep
 	minStep
 	maxStep
+	precisionStep
 	countStep
 	fileNameStep
 	inputCount
 )
 
 const (
-	maxRecordCount  = 10_000
-	maxStringLength = 1_000
+	maxRecordCount    = 10_000
+	maxStringLength   = 1_000
+	maxFloatPrecision = 6
 )
 
 // Services connects the interface to application operations without importing their implementations.
@@ -33,16 +35,17 @@ type applicationModel struct {
 	services Services
 	fields   []schema.FieldDefinition
 
-	nameInput     textinput.Model
-	typeInput     textinput.Model
-	minInput      textinput.Model
-	maxInput      textinput.Model
-	countInput    textinput.Model
-	fileNameInput textinput.Model
-	step          int
-	schemaFocus   bool
-	selectedField int
-	editIndex     int // -1 означает добавление нового поля; иначе сохраняем изменения в fields[editIndex].
+	nameInput      textinput.Model
+	typeInput      textinput.Model
+	minInput       textinput.Model
+	maxInput       textinput.Model
+	precisionInput textinput.Model
+	countInput     textinput.Model
+	fileNameInput  textinput.Model
+	step           int
+	schemaFocus    bool
+	selectedField  int
+	editIndex      int // -1 означает добавление нового поля; иначе сохраняем изменения в fields[editIndex].
 
 	records       []map[string]any
 	outputPath    string
@@ -62,19 +65,21 @@ func newInput(placeholder string) textinput.Model {
 
 func NewModel(services Services) tea.Model {
 	m := applicationModel{
-		services:      services,
-		nameInput:     newInput("например, age"),
-		typeInput:     newInput("integer / float / string / boolean"),
-		minInput:      newInput("например, 0"),
-		maxInput:      newInput("например, 120"),
-		countInput:    newInput("сколько записей создать"),
-		fileNameInput: newInput("например, purchases"),
-		status:        "Заполни поле и нажми +, затем укажи количество и имя файла.",
-		editIndex:     -1,
-		width:         80,
-		height:        24,
+		services:       services,
+		nameInput:      newInput("например, age"),
+		typeInput:      newInput("integer / float / string / boolean"),
+		minInput:       newInput("например, 0"),
+		maxInput:       newInput("например, 120"),
+		precisionInput: newInput("от 0 до 6"),
+		countInput:     newInput("сколько записей создать"),
+		fileNameInput:  newInput("например, purchases"),
+		status:         "Заполни поле и нажми +, затем укажи количество и имя файла.",
+		editIndex:      -1,
+		width:          80,
+		height:         24,
 	}
 	m.countInput.SetValue("5")
+	m.precisionInput.SetValue("2")
 	m.fileNameInput.SetValue("generated_tests")
 	m.nameInput.Focus()
 	return m
@@ -94,6 +99,8 @@ func (m *applicationModel) focusedInput() *textinput.Model {
 		return &m.minInput
 	case maxStep:
 		return &m.maxInput
+	case precisionStep:
+		return &m.precisionInput
 	case countStep:
 		return &m.countInput
 	default:
@@ -106,6 +113,7 @@ func (m *applicationModel) focus(step int) tea.Cmd {
 	m.typeInput.Blur()
 	m.minInput.Blur()
 	m.maxInput.Blur()
+	m.precisionInput.Blur()
 	m.countInput.Blur()
 	m.fileNameInput.Blur()
 	m.schemaFocus = false
@@ -118,6 +126,7 @@ func (m *applicationModel) focusSchema() {
 	m.typeInput.Blur()
 	m.minInput.Blur()
 	m.maxInput.Blur()
+	m.precisionInput.Blur()
 	m.countInput.Blur()
 	m.fileNameInput.Blur()
 	m.schemaFocus = true
@@ -126,27 +135,38 @@ func (m *applicationModel) focusSchema() {
 	}
 }
 
-func (m applicationModel) usesBounds() bool {
-	return strings.ToLower(strings.TrimSpace(m.typeInput.Value())) != "boolean"
+func (m applicationModel) isInputAvailable(step int) bool {
+	fieldType := strings.ToLower(strings.TrimSpace(m.typeInput.Value()))
+	switch step {
+	case minStep, maxStep:
+		return fieldType != "boolean" && !isAutomaticStringFieldName(m.nameInput.Value())
+	case precisionStep:
+		return fieldType == "float"
+	default:
+		return true
+	}
+}
+
+func isAutomaticStringFieldName(name string) bool {
+	_, automatic := schema.AutomaticStringType(name)
+	return automatic
 }
 
 func (m *applicationModel) moveForm(direction int) tea.Cmd {
-	next := m.step + direction
-	if !m.usesBounds() && (next == minStep || next == maxStep) {
-		if direction > 0 {
-			next = countStep
-		} else {
-			next = typeStep
+	next := m.step
+	for {
+		next += direction
+		if next >= inputCount || next < 0 {
+			if len(m.fields) > 0 {
+				m.focusSchema()
+				return nil
+			}
+			next = (next + inputCount) % inputCount
+		}
+		if m.isInputAvailable(next) {
+			return m.focus(next)
 		}
 	}
-	if next >= inputCount || next < 0 {
-		if len(m.fields) > 0 {
-			m.focusSchema()
-			return nil
-		}
-		next = (next + inputCount) % inputCount
-	}
-	return m.focus(next)
 }
 
 func (m *applicationModel) setStatus(message string, isError bool) {

@@ -1,4 +1,4 @@
-package main
+package exporter
 
 import (
 	"encoding/json"
@@ -9,7 +9,8 @@ import (
 	"strings"
 )
 
-func exportToFile(records []map[string]any, fileName string) (string, error) {
+// ExportToFile writes records to the default output directory.
+func ExportToFile(records []map[string]any, fileName string) (string, error) {
 	return exportToDirectory(records, fileName, "output")
 }
 

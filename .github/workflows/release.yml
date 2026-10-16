@@ -40,7 +40,7 @@ jobs:
       - name: Build and test
         if: steps.version.outputs.exists == 'false'
         shell: pwsh
-        run: .\build-release.ps1
+        run: .\scripts\build-release.ps1
       - name: Publish release
         if: steps.version.outputs.exists == 'false'
         shell: pwsh

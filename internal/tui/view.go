@@ -1,6 +1,7 @@
 package tui
 
 import (
+	"encoding/json"
 	"fmt"
 	"strings"
 
@@ -51,7 +52,10 @@ func (m applicationModel) schemaView(limit int) string {
 		line := fmt.Sprintf("%s%02d  %-16s %-8s", marker, i+1, field.Name, field.Type)
 		if field.Type == "integer" || field.Type == "float" {
 			line += fmt.Sprintf("  %g .. %g", field.Min, field.Max)
-		} else if field.Type == "string" {
+			if field.Type == "float" {
+				line += fmt.Sprintf("  точность %d", field.Precision)
+			}
+		} else if field.Type == "string" && !isAutomaticStringFieldName(field.Name) {
 			line += fmt.Sprintf("  длина %g .. %g", field.Min, field.Max)
 		}
 		if m.schemaFocus && i == m.selectedField {
@@ -64,12 +68,25 @@ func (m applicationModel) schemaView(limit int) string {
 
 func (m applicationModel) resultsView() string {
 	if len(m.records) == 0 {
-		return mutedStyle.Render("После генерации здесь появится путь к файлу.")
+		return mutedStyle.Render("После сохранения здесь появится путь к файлу.")
 	}
 	if m.outputPath == "" {
-		return errorStyle.Render("Не удалось сохранить файл. Причина указана ниже.")
+		return mutedStyle.Render("Предпросмотр готов. Нажми Enter, чтобы сохранить эти записи.")
 	}
 	return "Файл: " + m.outputPath
+}
+
+func (m applicationModel) previewView() string {
+	if len(m.records) == 0 {
+		return mutedStyle.Render("Нажми Ctrl+P, чтобы подготовить три записи для просмотра.")
+	}
+
+	previewCount := min(3, len(m.records))
+	data, err := json.MarshalIndent(m.records[:previewCount], "", "  ")
+	if err != nil {
+		return errorStyle.Render("Не удалось подготовить предпросмотр: " + err.Error())
+	}
+	return string(data)
 }
 
 func (m applicationModel) panel(heading, content string, width int) string {
@@ -97,15 +114,21 @@ func (m applicationModel) View() tea.View {
 		m.inputRow(typeStep, "Тип", m.typeInput),
 	}, "\n")
 	fieldType := strings.ToLower(strings.TrimSpace(m.typeInput.Value()))
-	if fieldType == "boolean" {
+	if fieldType == "boolean" || isAutomaticStringFieldName(m.nameInput.Value()) {
 		form += "\n" + mutedStyle.Render("  Минимум       не используется")
 		form += "\n" + mutedStyle.Render("  Максимум      не используется")
+		if isAutomaticStringFieldName(m.nameInput.Value()) {
+			form += "\n" + mutedStyle.Render("  Тип           string определяется автоматически")
+		}
 	} else if fieldType == "string" {
 		form += "\n" + m.inputRow(minStep, "Мин. длина", m.minInput)
 		form += "\n" + m.inputRow(maxStep, "Макс. длина", m.maxInput)
 	} else {
 		form += "\n" + m.inputRow(minStep, "Минимум", m.minInput)
 		form += "\n" + m.inputRow(maxStep, "Максимум", m.maxInput)
+		if fieldType == "float" {
+			form += "\n" + m.inputRow(precisionStep, "Точность", m.precisionInput)
+		}
 	}
 	formTitle := "НОВОЕ ПОЛЕ"
 	if m.editIndex >= 0 {
@@ -118,6 +141,12 @@ func (m applicationModel) View() tea.View {
 	screen.WriteString("СОХРАНЕНИЕ " + m.inputRow(fileNameStep, "Имя файла", m.fileNameInput))
 	screen.WriteString("\n")
 	screen.WriteString(m.panel(fmt.Sprintf("СХЕМА · %d", len(m.fields)), m.schemaView(schemaRows), width))
+	screen.WriteString("\n")
+	previewTitle := "ПРЕДПРОСМОТР"
+	if len(m.records) > 0 {
+		previewTitle = fmt.Sprintf("ПРЕДПРОСМОТР · первые %d из %d записей", min(3, len(m.records)), len(m.records))
+	}
+	screen.WriteString(m.panel(previewTitle, m.previewView(), width))
 	screen.WriteString("\n")
 	resultTitle := "РЕЗУЛЬТАТ"
 	if len(m.records) > 0 {
@@ -132,7 +161,7 @@ func (m applicationModel) View() tea.View {
 		screen.WriteString(successStyle.Render("● " + m.status))
 	}
 	screen.WriteString("\n")
-	screen.WriteString(mutedStyle.Render("↑↓/Tab · + поле · E правка · Del удалить · Enter создать · O папка · Esc выход"))
+	screen.WriteString(mutedStyle.Render("↑↓/Tab · + поле · P/Ctrl+P предпросмотр · Enter сохранить · E правка · Del удалить · O папка · Esc выход"))
 
 	return tea.NewView(screen.String())
 }

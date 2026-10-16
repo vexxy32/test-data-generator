@@ -23,13 +23,13 @@ The program generates data records, not Go unit-test source files.
 Install the Go version specified in `go.mod`, then run this command from the project folder:
 
 ```powershell
-go run .
+go run ./cmd/test-data-generator
 ```
 
 ## Build for Windows
 
 ```powershell
-go build -o testsGenerator.exe .
+go build -o TestDataGenerator.exe ./cmd/test-data-generator
 ```
 
 Run `testsGenerator.exe`. The `output` folder is created in the current working directory.
@@ -39,7 +39,7 @@ Run `testsGenerator.exe`. The `output` folder is created in the current working 
 Run this command from the project folder:
 
 ```powershell
-.\build-release.ps1
+.\scripts\build-release.ps1
 ```
 
 The script runs the tests, builds the application, and creates `release/test-data-generator-windows.zip`. When a new version is needed, update `VERSION` and push to `main`; GitHub Actions runs the same script and publishes the ZIP as a GitHub Release. A Windows user only needs to download the ZIP, extract it, and run `TestDataGenerator.exe`.
@@ -65,7 +65,8 @@ The script runs the tests, builds the application, and creates `release/test-dat
 - `+`: add or save a field.
 - `E`: edit the selected field.
 - `Delete`: delete the selected field.
-- `Enter`: generate and export records.
+- `P` or `Ctrl+P`: prepare a preview of the first three records.
+- `Enter`: save the prepared preview to a JSON file.
 - `O`: open the output folder.
 - `Esc`: exit.
 

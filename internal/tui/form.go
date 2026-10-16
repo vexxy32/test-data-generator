@@ -16,6 +16,7 @@ func (m *applicationModel) clearForm() {
 	m.typeInput.SetValue("")
 	m.minInput.SetValue("")
 	m.maxInput.SetValue("")
+	m.precisionInput.SetValue("2")
 	m.editIndex = -1
 }
 
@@ -27,12 +28,17 @@ func (m *applicationModel) editField() tea.Cmd {
 	m.editIndex = m.selectedField
 	m.nameInput.SetValue(field.Name)
 	m.typeInput.SetValue(field.Type)
-	if field.Type != "boolean" {
+	if field.Type != "boolean" && !isAutomaticStringFieldName(field.Name) {
 		m.minInput.SetValue(strconv.FormatFloat(field.Min, 'f', -1, 64))
 		m.maxInput.SetValue(strconv.FormatFloat(field.Max, 'f', -1, 64))
 	} else {
 		m.minInput.SetValue("")
 		m.maxInput.SetValue("")
+	}
+	if field.Type == "float" {
+		m.precisionInput.SetValue(strconv.Itoa(field.Precision))
+	} else {
+		m.precisionInput.SetValue("2")
 	}
 	m.setStatus("Редактируешь поле. Измени значения и нажми + для сохранения.", false)
 	return m.focus(nameStep)
@@ -62,6 +68,10 @@ func (m *applicationModel) addField() tea.Cmd {
 		m.setStatus("Укажи имя поля.", true)
 		return m.focus(nameStep)
 	}
+	if automaticType, automatic := schema.AutomaticStringType(name); automatic {
+		fieldType = automaticType
+		m.typeInput.SetValue(fieldType)
+	}
 
 	switch fieldType {
 	case "integer", "float", "string", "boolean":
@@ -78,7 +88,7 @@ func (m *applicationModel) addField() tea.Cmd {
 	}
 
 	newField := schema.FieldDefinition{Name: name, Type: fieldType}
-	if fieldType == "integer" || fieldType == "float" || fieldType == "string" {
+	if (fieldType == "integer" || fieldType == "float" || fieldType == "string") && !isAutomaticStringFieldName(name) {
 		min, err := strconv.ParseFloat(strings.TrimSpace(m.minInput.Value()), 64)
 		if err != nil || math.IsNaN(min) || math.IsInf(min, 0) {
 			m.setStatus("Введи минимум: число, а для string — длину строки.", true)
@@ -112,6 +122,14 @@ func (m *applicationModel) addField() tea.Cmd {
 		}
 		newField.Min, newField.Max = min, max
 	}
+	if fieldType == "float" {
+		precision, err := strconv.Atoi(strings.TrimSpace(m.precisionInput.Value()))
+		if err != nil || precision < 0 || precision > maxFloatPrecision {
+			m.setStatus("Точность float должна быть целым числом от 0 до 6.", true)
+			return m.focus(precisionStep)
+		}
+		newField.Precision = precision
+	}
 
 	wasEditing := m.editIndex >= 0
 	if wasEditing {
@@ -132,7 +150,7 @@ func (m *applicationModel) addField() tea.Cmd {
 	return m.focus(nameStep)
 }
 
-func (m *applicationModel) generate() tea.Cmd {
+func (m *applicationModel) preview() tea.Cmd {
 	if len(m.fields) == 0 {
 		m.setStatus("Сначала добавь хотя бы одно поле клавишей +.", true)
 		return nil
@@ -147,6 +165,15 @@ func (m *applicationModel) generate() tea.Cmd {
 
 	m.records = m.services.Generate(m.fields, count)
 	m.outputPath = ""
+	m.setStatus(fmt.Sprintf("Предпросмотр готов: %d записей. Нажми Enter, чтобы сохранить именно их.", count), false)
+	return nil
+}
+
+func (m *applicationModel) savePreview() tea.Cmd {
+	if len(m.records) == 0 || m.outputPath != "" {
+		return m.preview()
+	}
+
 	path, err := m.services.Export(m.records, m.fileNameInput.Value())
 	if err != nil {
 		m.setStatus("Не удалось сохранить JSON: "+err.Error(), true)
@@ -158,6 +185,6 @@ func (m *applicationModel) generate() tea.Cmd {
 		m.setStatus("Файл сохранён, но не удалось определить полный путь: "+err.Error(), true)
 		return nil
 	}
-	m.setStatus(fmt.Sprintf("Готово. Полей в схеме: %d. Записей: %d.", len(m.fields), count), false)
+	m.setStatus(fmt.Sprintf("Готово. В файл сохранено записей: %d.", len(m.records)), false)
 	return openOutputFolder(m.outputPath)
 }

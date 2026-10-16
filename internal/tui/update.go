@@ -2,6 +2,7 @@ package tui
 
 import (
 	tea "charm.land/bubbletea/v2"
+	"github.com/vexxy32/test-data-generator/internal/schema"
 )
 
 type folderOpenedMsg struct{ err error }
@@ -29,6 +30,7 @@ func (m applicationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.typeInput.SetWidth(inputWidth)
 		m.minInput.SetWidth(inputWidth)
 		m.maxInput.SetWidth(inputWidth)
+		m.precisionInput.SetWidth(inputWidth)
 		m.countInput.SetWidth(inputWidth)
 		m.fileNameInput.SetWidth(inputWidth)
 		return m, nil
@@ -83,12 +85,16 @@ func (m applicationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case "enter":
-			return m, m.generate()
+			return m, m.savePreview()
+		case "ctrl+p":
+			return m, m.preview()
 		}
 		if m.schemaFocus {
 			switch msg.String() {
 			case "e":
 				return m, m.editField()
+			case "p":
+				return m, m.preview()
 			case "o":
 				if m.outputPath == "" {
 					m.setStatus("Файл ещё не сохранён. После экспорта путь появится здесь.", true)
@@ -110,5 +116,10 @@ func (m applicationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	input := m.focusedInput()
 	var cmd tea.Cmd
 	*input, cmd = input.Update(msg)
+	if m.step == nameStep {
+		if automaticType, automatic := schema.AutomaticStringType(m.nameInput.Value()); automatic {
+			m.typeInput.SetValue(automaticType)
+		}
+	}
 	return m, cmd
 }
