@@ -11,6 +11,10 @@ The application creates an `output` folder in its current working directory and 
 ## Features
 
 - Generates `integer`, `float`, `string`, and `boolean` fields.
+- Rounds `float` values to a precision you choose from 0 to 6 decimal places.
+- Recognizes names such as `name`, `email`, `city`, `country`, and `company`, selects the `string` type automatically, and generates values from built-in lists.
+- Creates an automatic `_test_id` for every record, making a problematic input easy to find in a JSON file.
+- Shows a preview of the first three records; the previewed values are the exact values saved to JSON.
 - Validates field names, ranges, record count, and string length.
 - Saves JSON files to the `output` folder.
 - Lets you choose a file name and keeps previous files by adding `_2`, `_3`, and so on.
@@ -32,7 +36,7 @@ go run ./cmd/test-data-generator
 go build -o TestDataGenerator.exe ./cmd/test-data-generator
 ```
 
-Run `testsGenerator.exe`. The `output` folder is created in the current working directory.
+Run `TestDataGenerator.exe`. The `output` folder is created in the current working directory.
 
 ## Create a release ZIP
 
@@ -49,15 +53,23 @@ The script runs the tests, builds the application, and creates `release/test-dat
 ```json
 [
   {
-    "age": 25,
-    "active": true
+    "_test_id": 1,
+    "name": "Anna",
+    "email": "anna.smith42@example.com",
+    "age": 25
   },
   {
-    "age": 41,
-    "active": false
+    "_test_id": 2,
+    "name": "Max",
+    "email": "max.brown913@example.com",
+    "age": 41
   }
 ]
 ```
+
+## Automatic string fields
+
+For these field names, the application selects `string` automatically and does not ask for a length range: `name`, `surname`, `email`, `city`, `country`, `company`, `department`, `job_title`, `street_address`, `phone_number`, `user_role`, `status`, `color`, `currency`, `language`, and `content_title`. Plural and underscore variants such as `cities` and `job_titles` are also supported.
 
 ## Controls
 

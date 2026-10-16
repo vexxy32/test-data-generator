@@ -47,4 +47,11 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create '${{ steps.version.outputs.tag }}' '.\release\test-data-generator-windows.zip' --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Test Data Generator ${{ steps.version.outputs.tag }}" --notes "Windows build. Download the ZIP, extract it, and run TestDataGenerator.exe. Source code is available in this repository."
+          gh release create '${{ steps.version.outputs.tag }}' '.\release\test-data-generator-windows.zip' --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Test Data Generator ${{ steps.version.outputs.tag }}" --notes "## What's new in v0.2.0
+
+          - Added a three-record preview before export; the previewed records are the ones saved to JSON.
+          - Added precision control for float values.
+          - Added automatic string data for names, surnames, email addresses, cities, countries, companies, roles, and more.
+          - Added _test_id to every record for easier debugging.
+
+          Download the Windows ZIP, extract it, and run TestDataGenerator.exe. Source code is available in this repository."
