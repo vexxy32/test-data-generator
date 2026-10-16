@@ -1,5 +1,7 @@
 # Test Data Generator
 
+[English](README.md) | [Русский](README.ru.md)
+
 A small Windows terminal application that generates JSON test data from a schema you enter on screen.
 
 ## Download and run
@@ -81,6 +83,10 @@ For these field names, the application selects `string` automatically and does n
 - `Enter`: save the prepared preview to a JSON file.
 - `O`: open the output folder.
 - `Esc`: exit.
+
+## Feedback
+
+Found a bug or have an idea? Open an [issue](../../issues), visit [@vexxy32](https://github.com/vexxy32), or email [egorkuznecov254@gmail.com](mailto:egorkuznecov254@gmail.com).
 
 ## License
 
