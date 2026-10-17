@@ -16,6 +16,7 @@ The application creates an `output` folder in its current working directory and 
 - Rounds `float` values to a precision you choose from 0 to 6 decimal places.
 - Recognizes names such as `name`, `email`, `city`, `country`, and `company`, selects the `string` type automatically, and generates values from built-in lists.
 - Creates an automatic `_test_id` for every record, making a problematic input easy to find in a JSON file.
+- Supports a generation seed: reuse the same seed, schema, field order, and record count to reproduce the same data.
 - Shows a preview of the first three records; the previewed values are the exact values saved to JSON.
 - Validates field names, ranges, record count, and string length.
 - Saves JSON files to the `output` folder.
@@ -81,6 +82,7 @@ For these field names, the application selects `string` automatically and does n
 - `Delete`: delete the selected field.
 - `P` or `Ctrl+P`: prepare a preview of the first three records.
 - `Enter`: save the prepared preview to a JSON file.
+- `Seed`: leave it empty to create a new random seed; keep or enter a seed to reproduce a generated data set.
 - `O`: open the output folder.
 - `Esc`: exit.
 

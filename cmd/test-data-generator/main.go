@@ -11,13 +11,18 @@ import (
 )
 
 func main() {
-	p := tea.NewProgram(tui.NewModel(tui.Services{
+	// Здесь соединяются части программы: TUI получает функции генерации и экспорта.
+	services := tui.Services{
 		Generate: generator.GenerateRecords,
 		Export:   exporter.ExportToFile,
-	}))
+	}
 
-	if _, err := p.Run(); err != nil {
-		fmt.Printf("Ошибка запуска TUI: %v\n", err)
+	model := tui.NewModel(services)
+
+	program := tea.NewProgram(model)
+
+	if _, err := program.Run(); err != nil {
+		fmt.Printf(" Ошибка запуска UI: %+v\n", err)
 		os.Exit(1)
 	}
 }

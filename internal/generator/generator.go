@@ -8,123 +8,137 @@ import (
 	"github.com/vexxy32/test-data-generator/internal/schema"
 )
 
-func generateValue(field schema.FieldDefinition) any {
+// generateFieldValue выбирает способ генерации по типу одного поля.
+func generateFieldValue(field schema.FieldDefinition, firstName, surname string, randomGenerator *rand.Rand) any {
 	switch field.Type {
 
 	case "integer":
 		min := int(field.Min)
 		max := int(field.Max)
 
-		return min + rand.IntN(max-min+1)
+		return min + randomGenerator.IntN(max-min+1)
 
 	case "float":
-		value := field.Min + rand.Float64()*(field.Max-field.Min)
+		value := field.Min + randomGenerator.Float64()*(field.Max-field.Min)
 		scale := math.Pow10(field.Precision)
 		return math.Round(value*scale) / scale
 
 	case "string":
-		return generateString(field)
+		return generateStringValue(field, firstName, surname, randomGenerator)
 
 	case "boolean":
-		return rand.IntN(2) == 1
+		return randomGenerator.IntN(2) == 1
 
 	}
 
 	return nil
 }
 
-func generateString(field schema.FieldDefinition) string {
+// generateStringValue использует готовые значения для специальных имён полей.
+// Для обычного строкового поля создаёт строку заданной длины.
+func generateStringValue(field schema.FieldDefinition, firstName, surname string, randomGenerator *rand.Rand) string {
 	switch strings.ToLower(strings.TrimSpace(field.Name)) {
 	case "name", "names", "firstname", "firstnames", "first_name":
-		return randomItem(firstNames)
+		return firstName
 
 	case "surname", "surnames":
-		return randomItem(surnames)
+		return surname
 
 	case "email", "emails":
-		return randomEmail()
+		return randomEmail(firstName, surname, randomGenerator)
 
 	case "emaildomain", "emaildomains", "email_domain", "email_domains":
-		return randomItem(emailDomains)
+		return randomItem(emailDomains, randomGenerator)
 
 	case "city", "cities":
-		return randomItem(cities)
+		return randomItem(cities, randomGenerator)
 
 	case "country", "countries":
-		return randomItem(countries)
+		return randomItem(countries, randomGenerator)
 
 	case "company", "companies":
-		return randomItem(companies)
+		return randomItem(companies, randomGenerator)
 
 	case "department", "departments":
-		return randomItem(departments)
+		return randomItem(departments, randomGenerator)
 
 	case "jobtitle", "jobtitles", "job_title", "job_titles":
-		return randomItem(jobTitles)
+		return randomItem(jobTitles, randomGenerator)
 
 	case "streetaddress", "streetaddresses", "street_address", "street_addresses":
-		return randomItem(streetAddresses)
+		return randomItem(streetAddresses, randomGenerator)
 
 	case "phonenumber", "phonenumbers", "phone_number", "phone_numbers":
-		return randomItem(phoneNumbers)
+		return randomItem(phoneNumbers, randomGenerator)
 
 	case "userrole", "userroles", "user_role", "user_roles":
-		return randomItem(userRoles)
+		return randomItem(userRoles, randomGenerator)
 
 	case "status", "statuses":
-		return randomItem(statuses)
+		return randomItem(statuses, randomGenerator)
 
 	case "color", "colors":
-		return randomItem(colors)
+		return randomItem(colors, randomGenerator)
 
 	case "currency", "currencies":
-		return randomItem(currencies)
+		return randomItem(currencies, randomGenerator)
 
 	case "language", "languages":
-		return randomItem(languages)
+		return randomItem(languages, randomGenerator)
 
 	case "contenttitle", "contenttitles", "content_title", "content_titles":
-		return randomItem(contentTitles)
+		return randomItem(contentTitles, randomGenerator)
 
 	default:
-		return generateRandomString(field)
+		return generateRandomString(field, randomGenerator)
 	}
 }
 
-func generateRandomString(field schema.FieldDefinition) string {
+// generateRandomString создаёт строку из букв и цифр в пределах заданной длины.
+func generateRandomString(field schema.FieldDefinition, randomGenerator *rand.Rand) string {
 	const alphabet = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789"
 
 	minLength := int(field.Min)
 	maxLength := int(field.Max)
-	length := minLength + rand.IntN(maxLength-minLength+1)
+	length := minLength + randomGenerator.IntN(maxLength-minLength+1)
 	randomString := make([]byte, length)
 
 	for i := range randomString {
-		randomIndex := rand.IntN(len(alphabet))
+		randomIndex := randomGenerator.IntN(len(alphabet))
 		randomString[i] = alphabet[randomIndex]
 	}
 
 	return string(randomString)
 }
 
-func generateRecord(fields []schema.FieldDefinition) map[string]any {
-	record := map[string]any{}
+// generateRecord собирает одну запись; имя, фамилия и email в ней согласованы.
+func generateRecord(fields []schema.FieldDefinition,
+	randomGenerator *rand.Rand) map[string]any {
+	record := make(map[string]any)
+
+	firstName := randomItem(firstNames, randomGenerator)
+	surname := randomItem(surnames, randomGenerator)
 
 	for _, field := range fields {
-		record[field.Name] = generateValue(field)
+		record[field.Name] = generateFieldValue(field, firstName, surname, randomGenerator)
 	}
-
 	return record
 }
 
-func GenerateRecords(fields []schema.FieldDefinition, count int) []map[string]any {
-	records := []map[string]any{}
+// GenerateRecords создаёт указанное число записей и добавляет каждой номер _test_id.
+func GenerateRecords(
+	fields []schema.FieldDefinition,
+	count int,
+	seed uint64,
+) []map[string]any {
+	pcg := rand.NewPCG(seed, 1)
+	randomGenerator := rand.New(pcg)
+
+	records := make([]map[string]any, 0, count)
 
 	for i := 0; i < count; i++ {
-		record := generateRecord(fields)
-
+		record := generateRecord(fields, randomGenerator)
 		record["_test_id"] = i + 1
-
 		records = append(records, record)
 	}
 

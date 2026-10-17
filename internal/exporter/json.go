@@ -9,11 +9,12 @@ import (
 	"strings"
 )
 
-// ExportToFile writes records to the default output directory.
+// ExportToFile сохраняет записи в папку output и возвращает путь к JSON.
 func ExportToFile(records []map[string]any, fileName string) (string, error) {
 	return exportToDirectory(records, fileName, "output")
 }
 
+// exportToDirectory проверяет имя и подбирает новый путь, не затирая старый файл.
 func exportToDirectory(records []map[string]any, fileName, outputDir string) (string, error) {
 	fileName = strings.TrimSpace(fileName)
 	if fileName == "" {

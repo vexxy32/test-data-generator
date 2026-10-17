@@ -2,6 +2,8 @@ package schema
 
 import "strings"
 
+// FieldDefinition описывает поле будущей записи. Min и Max задают диапазон
+// чисел или длину обычной строки; Precision нужен только для float.
 type FieldDefinition struct {
 	Name      string
 	Type      string
@@ -10,6 +12,7 @@ type FieldDefinition struct {
 	Precision int
 }
 
+// AutomaticStringType сообщает TUI, для каких имён тип string выбирается сам.
 func AutomaticStringType(name string) (string, bool) {
 	switch strings.ToLower(strings.TrimSpace(name)) {
 	case

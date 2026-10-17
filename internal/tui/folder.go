@@ -9,6 +9,7 @@ import (
 	tea "charm.land/bubbletea/v2"
 )
 
+// openOutputFolder создаёт команду TUI для открытия папки сохранённого файла.
 func openOutputFolder(path string) tea.Cmd {
 	return func() tea.Msg {
 		directory := filepath.Dir(path)

@@ -7,6 +7,7 @@ import (
 
 type folderOpenedMsg struct{ err error }
 
+// Update обрабатывает нажатия клавиш и сообщения от запущенных команд TUI.
 func (m applicationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case folderOpenedMsg:
@@ -32,6 +33,7 @@ func (m applicationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.maxInput.SetWidth(inputWidth)
 		m.precisionInput.SetWidth(inputWidth)
 		m.countInput.SetWidth(inputWidth)
+		m.seedInput.SetWidth(inputWidth)
 		m.fileNameInput.SetWidth(inputWidth)
 		return m, nil
 

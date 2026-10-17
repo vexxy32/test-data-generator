@@ -1,6 +1,8 @@
 package tui
 
 import (
+	cryptorand "crypto/rand"
+	"encoding/binary"
 	"fmt"
 	"math"
 	"path/filepath"
@@ -11,6 +13,7 @@ import (
 	"github.com/vexxy32/test-data-generator/internal/schema"
 )
 
+// clearForm очищает форму после добавления поля или отмены правки.
 func (m *applicationModel) clearForm() {
 	m.nameInput.SetValue("")
 	m.typeInput.SetValue("")
@@ -20,6 +23,7 @@ func (m *applicationModel) clearForm() {
 	m.editIndex = -1
 }
 
+// editField переносит выбранное поле из схемы обратно в форму.
 func (m *applicationModel) editField() tea.Cmd {
 	if !m.schemaFocus || len(m.fields) == 0 {
 		return nil
@@ -44,6 +48,7 @@ func (m *applicationModel) editField() tea.Cmd {
 	return m.focus(nameStep)
 }
 
+// deleteField удаляет выбранное поле и сбрасывает старый результат генерации.
 func (m *applicationModel) deleteField() {
 	if !m.schemaFocus || len(m.fields) == 0 {
 		m.setStatus("Сначала выбери поле в схеме клавишей Tab.", true)
@@ -61,11 +66,16 @@ func (m *applicationModel) deleteField() {
 	m.setStatus(fmt.Sprintf("Поле %q удалено.", removed), false)
 }
 
+// addField проверяет введённые параметры и добавляет поле или сохраняет его правку.
 func (m *applicationModel) addField() tea.Cmd {
 	name := strings.TrimSpace(m.nameInput.Value())
 	fieldType := strings.ToLower(strings.TrimSpace(m.typeInput.Value()))
 	if name == "" {
 		m.setStatus("Укажи имя поля.", true)
+		return m.focus(nameStep)
+	}
+	if strings.EqualFold(name, "_test_id") {
+		m.setStatus("Имя _test_id зарезервировано программой.", true)
 		return m.focus(nameStep)
 	}
 	if automaticType, automatic := schema.AutomaticStringType(name); automatic {
@@ -150,6 +160,7 @@ func (m *applicationModel) addField() tea.Cmd {
 	return m.focus(nameStep)
 }
 
+// preview создаёт записи один раз; эти же записи затем сохраняет savePreview.
 func (m *applicationModel) preview() tea.Cmd {
 	if len(m.fields) == 0 {
 		m.setStatus("Сначала добавь хотя бы одно поле клавишей +.", true)
@@ -163,12 +174,37 @@ func (m *applicationModel) preview() tea.Cmd {
 		return nil
 	}
 
-	m.records = m.services.Generate(m.fields, count)
+	seed, err := m.seed()
+	if err != nil {
+		m.setStatus("Seed должен быть целым неотрицательным числом.", true)
+		m.focus(seedStep)
+		return nil
+	}
+
+	m.records = m.services.Generate(m.fields, count, seed)
 	m.outputPath = ""
-	m.setStatus(fmt.Sprintf("Предпросмотр готов: %d записей. Нажми Enter, чтобы сохранить именно их.", count), false)
+	m.setStatus(fmt.Sprintf("Предпросмотр готов: %d записей. Seed: %d. Нажми Enter, чтобы сохранить именно их.", count, seed), false)
 	return nil
 }
 
+// seed читает seed из формы или создаёт новый и оставляет его в форме для повторной генерации.
+func (m *applicationModel) seed() (uint64, error) {
+	value := strings.TrimSpace(m.seedInput.Value())
+	if value != "" {
+		return strconv.ParseUint(value, 10, 64)
+	}
+
+	var bytes [8]byte
+	if _, err := cryptorand.Read(bytes[:]); err != nil {
+		return 0, err
+	}
+	seed := binary.LittleEndian.Uint64(bytes[:])
+	m.seedInput.SetValue(strconv.FormatUint(seed, 10))
+	return seed, nil
+}
+
+// savePreview записывает подготовленные данные в JSON и открывает папку результата.
+// Если предпросмотра ещё нет, сначала подготавливает записи.
 func (m *applicationModel) savePreview() tea.Cmd {
 	if len(m.records) == 0 || m.outputPath != "" {
 		return m.preview()

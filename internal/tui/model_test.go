@@ -12,10 +12,10 @@ func TestFormConnectsGenerationAndExport(t *testing.T) {
 	generated := false
 	exported := false
 	m := NewModel(Services{
-		Generate: func(fields []schema.FieldDefinition, count int) []map[string]any {
+		Generate: func(fields []schema.FieldDefinition, count int, seed uint64) []map[string]any {
 			generated = true
-			if count != 3 || len(fields) != 1 || fields[0].Name != "age" || fields[0].Type != "integer" {
-				t.Fatalf("unexpected generation request: fields=%+v count=%d", fields, count)
+			if count != 3 || seed != 500 || len(fields) != 1 || fields[0].Name != "age" || fields[0].Type != "integer" {
+				t.Fatalf("unexpected generation request: fields=%+v count=%d seed=%d", fields, count, seed)
 			}
 			return []map[string]any{{"age": 21}}
 		},
@@ -38,6 +38,7 @@ func TestFormConnectsGenerationAndExport(t *testing.T) {
 	}
 
 	m.countInput.SetValue("3")
+	m.seedInput.SetValue("500")
 	m.fileNameInput.SetValue("sample")
 	m.preview()
 	if !generated || exported || m.outputPath != "" {
@@ -46,5 +47,17 @@ func TestFormConnectsGenerationAndExport(t *testing.T) {
 	m.savePreview()
 	if !generated || !exported || m.outputPath != wantPath || m.statusIsError {
 		t.Fatalf("generation/export failed: generated=%v exported=%v path=%q status=%q", generated, exported, m.outputPath, m.status)
+	}
+}
+
+func TestReservedTestIDCannotBeAdded(t *testing.T) {
+	m := NewModel(Services{}).(applicationModel)
+	m.nameInput.SetValue("_TEST_ID")
+	m.typeInput.SetValue("integer")
+	m.minInput.SetValue("1")
+	m.maxInput.SetValue("10")
+	m.addField()
+	if !m.statusIsError || len(m.fields) != 0 {
+		t.Fatalf("reserved field was accepted: status=%q fields=%v", m.status, m.fields)
 	}
 }

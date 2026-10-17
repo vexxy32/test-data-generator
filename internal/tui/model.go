@@ -15,6 +15,7 @@ const (
 	maxStep
 	precisionStep
 	countStep
+	seedStep
 	fileNameStep
 	inputCount
 )
@@ -25,12 +26,13 @@ const (
 	maxFloatPrecision = 6
 )
 
-// Services connects the interface to application operations without importing their implementations.
+// Services хранит функции генерации и экспорта, переданные в TUI из main.
 type Services struct {
-	Generate func([]schema.FieldDefinition, int) []map[string]any
+	Generate func([]schema.FieldDefinition, int, uint64) []map[string]any
 	Export   func([]map[string]any, string) (string, error)
 }
 
+// applicationModel хранит состояние формы, схемы и подготовленного результата.
 type applicationModel struct {
 	services Services
 	fields   []schema.FieldDefinition
@@ -41,6 +43,7 @@ type applicationModel struct {
 	maxInput       textinput.Model
 	precisionInput textinput.Model
 	countInput     textinput.Model
+	seedInput      textinput.Model
 	fileNameInput  textinput.Model
 	step           int
 	schemaFocus    bool
@@ -63,6 +66,7 @@ func newInput(placeholder string) textinput.Model {
 	return input
 }
 
+// NewModel создаёт начальное состояние интерфейса с настройками по умолчанию.
 func NewModel(services Services) tea.Model {
 	m := applicationModel{
 		services:       services,
@@ -72,6 +76,7 @@ func NewModel(services Services) tea.Model {
 		maxInput:       newInput("например, 120"),
 		precisionInput: newInput("от 0 до 6"),
 		countInput:     newInput("сколько записей создать"),
+		seedInput:      newInput("пусто — новый случайный seed"),
 		fileNameInput:  newInput("например, purchases"),
 		status:         "Заполни поле и нажми +, затем укажи количество и имя файла.",
 		editIndex:      -1,
@@ -103,11 +108,14 @@ func (m *applicationModel) focusedInput() *textinput.Model {
 		return &m.precisionInput
 	case countStep:
 		return &m.countInput
+	case seedStep:
+		return &m.seedInput
 	default:
 		return &m.fileNameInput
 	}
 }
 
+// focus переводит ввод на указанный элемент формы.
 func (m *applicationModel) focus(step int) tea.Cmd {
 	m.nameInput.Blur()
 	m.typeInput.Blur()
@@ -115,6 +123,7 @@ func (m *applicationModel) focus(step int) tea.Cmd {
 	m.maxInput.Blur()
 	m.precisionInput.Blur()
 	m.countInput.Blur()
+	m.seedInput.Blur()
 	m.fileNameInput.Blur()
 	m.schemaFocus = false
 	m.step = step
@@ -128,6 +137,7 @@ func (m *applicationModel) focusSchema() {
 	m.maxInput.Blur()
 	m.precisionInput.Blur()
 	m.countInput.Blur()
+	m.seedInput.Blur()
 	m.fileNameInput.Blur()
 	m.schemaFocus = true
 	if m.selectedField >= len(m.fields) {
@@ -135,6 +145,7 @@ func (m *applicationModel) focusSchema() {
 	}
 }
 
+// isInputAvailable определяет, можно ли перейти к параметру для выбранного типа.
 func (m applicationModel) isInputAvailable(step int) bool {
 	fieldType := strings.ToLower(strings.TrimSpace(m.typeInput.Value()))
 	switch step {

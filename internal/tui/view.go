@@ -33,6 +33,7 @@ func (m applicationModel) inputRow(index int, label string, input textinput.Mode
 	return marker + labelText + input.View()
 }
 
+// schemaView показывает добавленные поля и выделяет выбранное для правки.
 func (m applicationModel) schemaView(limit int) string {
 	if len(m.fields) == 0 {
 		return mutedStyle.Render("Пока пусто. Заполни форму и нажми +.")
@@ -76,6 +77,7 @@ func (m applicationModel) resultsView() string {
 	return "Файл: " + m.outputPath
 }
 
+// previewView выводит первые три уже подготовленные записи.
 func (m applicationModel) previewView() string {
 	if len(m.records) == 0 {
 		return mutedStyle.Render("Нажми Ctrl+P, чтобы подготовить три записи для просмотра.")
@@ -93,6 +95,7 @@ func (m applicationModel) panel(heading, content string, width int) string {
 	return panelStyle.Width(width).Render(accentStyle.Render(heading) + "\n" + content)
 }
 
+// View собирает экран из формы, схемы, предпросмотра и результата.
 func (m applicationModel) View() tea.View {
 	width := m.width - 4
 	if width < 28 {
@@ -137,6 +140,8 @@ func (m applicationModel) View() tea.View {
 	screen.WriteString(m.panel(formTitle, form, width))
 	screen.WriteString("\n")
 	screen.WriteString("ГЕНЕРАЦИЯ   " + m.inputRow(countStep, "Количество", m.countInput))
+	screen.WriteString("\n")
+	screen.WriteString("ГЕНЕРАЦИЯ   " + m.inputRow(seedStep, "Seed", m.seedInput))
 	screen.WriteString("\n")
 	screen.WriteString("СОХРАНЕНИЕ " + m.inputRow(fileNameStep, "Имя файла", m.fileNameInput))
 	screen.WriteString("\n")

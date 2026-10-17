@@ -2,7 +2,9 @@ package generator
 
 import (
 	"math"
+	"reflect"
 	"slices"
+	"strings"
 	"testing"
 
 	"github.com/vexxy32/test-data-generator/internal/schema"
@@ -17,7 +19,7 @@ func TestGenerateRecords(t *testing.T) {
 		{Name: "active", Type: "boolean"},
 	}
 
-	records := GenerateRecords(fields, 100)
+	records := GenerateRecords(fields, 100, 42)
 	if len(records) != 100 {
 		t.Fatalf("got %d records, want 100", len(records))
 	}
@@ -45,5 +47,36 @@ func TestGenerateRecords(t *testing.T) {
 		if _, ok := record["active"].(bool); !ok {
 			t.Errorf("record %d: invalid boolean %v", i, record["active"])
 		}
+	}
+}
+
+func TestNameSurnameAndEmailBelongToSameRecord(t *testing.T) {
+	fields := []schema.FieldDefinition{
+		{Name: "EMAILS", Type: "string"},
+		{Name: "first_name", Type: "string"},
+		{Name: "surnames", Type: "string"},
+	}
+
+	for _, record := range GenerateRecords(fields, 100, 42) {
+		name := strings.ToLower(record["first_name"].(string))
+		surname := strings.ToLower(record["surnames"].(string))
+		email := record["EMAILS"].(string)
+		if !strings.HasPrefix(email, name+"."+surname) {
+			t.Fatalf("email %q does not match name %q and surname %q", email, name, surname)
+		}
+	}
+}
+
+func TestGenerateRecordsWithSameSeedReturnsSameData(t *testing.T) {
+	fields := []schema.FieldDefinition{
+		{Name: "name", Type: "string"},
+		{Name: "email", Type: "string"},
+		{Name: "age", Type: "integer", Min: 18, Max: 65},
+	}
+
+	first := GenerateRecords(fields, 3, 2026)
+	second := GenerateRecords(fields, 3, 2026)
+	if !reflect.DeepEqual(first, second) {
+		t.Fatal("same seed produced different records")
 	}
 }

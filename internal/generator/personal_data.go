@@ -3,6 +3,7 @@ package generator
 import (
 	"fmt"
 	"math/rand/v2"
+	"strings"
 )
 
 var firstNames = []string{
@@ -129,27 +130,18 @@ var contentTitles = []string{
 	"Release Notes v2.0", "Security Audit Findings", "Weekly Team Sync",
 }
 
-func randomItem(items []string) string {
-	return items[rand.IntN(len(items))]
+// randomItem выбирает одно значение из непустого списка готовых вариантов.
+func randomItem(items []string, randomGenerator *rand.Rand) string {
+	return items[randomGenerator.IntN(len(items))]
 }
 
-func randomEmail() string {
-	return fmt.Sprintf("%s.%s%d@%s",
-		lowerFirst(randomItem(firstNames)),
-		lowerFirst(randomItem(surnames)),
-		rand.IntN(10_000),
-		randomItem(emailDomains),
+// randomEmail строит адрес из имени и фамилии текущей записи.
+func randomEmail(firstName, surname string, randomGenerator *rand.Rand) string {
+	return fmt.Sprintf(
+		"%s.%s%d@%s",
+		strings.ToLower(firstName),
+		strings.ToLower(surname),
+		randomGenerator.IntN(10000),
+		randomItem(emailDomains, randomGenerator),
 	)
-}
-
-func lowerFirst(value string) string {
-	result := make([]byte, len(value))
-	for i, char := range []byte(value) {
-		if char >= 'A' && char <= 'Z' {
-			result[i] = char + ('a' - 'A')
-			continue
-		}
-		result[i] = char
-	}
-	return string(result)
 }
