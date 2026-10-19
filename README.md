@@ -76,6 +76,7 @@ For these field names, the application selects `string` automatically and does n
 
 ## Controls
 
+- Enter a name such as `users` in the template name field. `Ctrl+S` saves the current fields, record count, and output filename to `templates/users.json`. `Ctrl+L` opens the template list; use the arrow keys and `Enter` to load one, or `Esc` to return. `S` and `L` also work while the schema list is selected. The seed is not saved in a template.
 - `Tab`, `↑`, or `↓`: move between form fields; `↑` and `↓` also select a field in the schema list.
 - `+`: add or save a field.
 - `E`: edit the selected field.
@@ -84,6 +85,7 @@ For these field names, the application selects `string` automatically and does n
 - `Enter`: save the prepared preview to a JSON file.
 - `Seed`: leave it empty to create a new random seed; keep or enter a seed to reproduce a generated data set.
 - `O`: open the output folder.
+- `Ctrl+N`: start a new test without restarting the application.
 - `Esc`: exit.
 
 ## Feedback

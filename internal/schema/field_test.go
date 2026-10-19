@@ -14,3 +14,18 @@ func TestAutomaticStringType(t *testing.T) {
 		t.Error("description should remain a manually configured field")
 	}
 }
+
+func TestAutomaticStringKind(t *testing.T) {
+	tests := map[string]string{
+		"First_Name":    "name",
+		"job_titles":    "jobtitle",
+		"email_domains": "emaildomain",
+	}
+
+	for name, wantKind := range tests {
+		kind, automatic := AutomaticStringKind(name)
+		if !automatic || kind != wantKind {
+			t.Errorf("AutomaticStringKind(%q) = %q, %t; want %q, true", name, kind, automatic, wantKind)
+		}
+	}
+}

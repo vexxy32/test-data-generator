@@ -6,6 +6,7 @@ import (
 	"charm.land/bubbles/v2/textinput"
 	tea "charm.land/bubbletea/v2"
 	"github.com/vexxy32/test-data-generator/internal/schema"
+	"github.com/vexxy32/test-data-generator/internal/templates"
 )
 
 const (
@@ -17,6 +18,7 @@ const (
 	countStep
 	seedStep
 	fileNameStep
+	templateNameStep
 	inputCount
 )
 
@@ -26,29 +28,36 @@ const (
 	maxFloatPrecision = 6
 )
 
-// Services хранит функции генерации и экспорта, переданные в TUI из main.
+// Services хранит операции, переданные в TUI из main.
 type Services struct {
-	Generate func([]schema.FieldDefinition, int, uint64) []map[string]any
-	Export   func([]map[string]any, string) (string, error)
+	Generate      func([]schema.FieldDefinition, int, uint64) []map[string]any
+	Export        func([]map[string]any, string) (string, error)
+	SaveTemplate  func(string, templates.Template) (string, error)
+	LoadTemplate  func(string) (templates.Template, error)
+	ListTemplates func() ([]string, error)
 }
 
-// applicationModel хранит состояние формы, схемы и подготовленного результата.
-type applicationModel struct {
+// Model хранит состояние формы, схемы и подготовленного результата.
+type Model struct {
 	services Services
 	fields   []schema.FieldDefinition
 
-	nameInput      textinput.Model
-	typeInput      textinput.Model
-	minInput       textinput.Model
-	maxInput       textinput.Model
-	precisionInput textinput.Model
-	countInput     textinput.Model
-	seedInput      textinput.Model
-	fileNameInput  textinput.Model
-	step           int
-	schemaFocus    bool
-	selectedField  int
-	editIndex      int // -1 означает добавление нового поля; иначе сохраняем изменения в fields[editIndex].
+	nameInput         textinput.Model
+	typeInput         textinput.Model
+	minInput          textinput.Model
+	maxInput          textinput.Model
+	precisionInput    textinput.Model
+	countInput        textinput.Model
+	seedInput         textinput.Model
+	fileNameInput     textinput.Model
+	templateNameInput textinput.Model
+	step              int
+	schemaFocus       bool
+	selectedField     int
+	editIndex         int // -1 означает добавление нового поля; иначе сохраняем изменения в fields[editIndex].
+	templatePicker    bool
+	templateNames     []string
+	selectedTemplate  int
 
 	records       []map[string]any
 	outputPath    string
@@ -67,21 +76,22 @@ func newInput(placeholder string) textinput.Model {
 }
 
 // NewModel создаёт начальное состояние интерфейса с настройками по умолчанию.
-func NewModel(services Services) tea.Model {
-	m := applicationModel{
-		services:       services,
-		nameInput:      newInput("например, age"),
-		typeInput:      newInput("integer / float / string / boolean"),
-		minInput:       newInput("например, 0"),
-		maxInput:       newInput("например, 120"),
-		precisionInput: newInput("от 0 до 6"),
-		countInput:     newInput("сколько записей создать"),
-		seedInput:      newInput("пусто — новый случайный seed"),
-		fileNameInput:  newInput("например, purchases"),
-		status:         "Заполни поле и нажми +, затем укажи количество и имя файла.",
-		editIndex:      -1,
-		width:          80,
-		height:         24,
+func NewModel(services Services) Model {
+	m := Model{
+		services:          services,
+		nameInput:         newInput("например, age"),
+		typeInput:         newInput("integer / float / string / boolean"),
+		minInput:          newInput("например, 0"),
+		maxInput:          newInput("например, 120"),
+		precisionInput:    newInput("от 0 до 6"),
+		countInput:        newInput("сколько записей создать"),
+		seedInput:         newInput("пусто — новый случайный seed"),
+		fileNameInput:     newInput("например, purchases"),
+		templateNameInput: newInput("например, users"),
+		status:            "Заполни поле и нажми +, затем укажи количество и имя файла.",
+		editIndex:         -1,
+		width:             80,
+		height:            24,
 	}
 	m.countInput.SetValue("5")
 	m.precisionInput.SetValue("2")
@@ -90,11 +100,11 @@ func NewModel(services Services) tea.Model {
 	return m
 }
 
-func (m applicationModel) Init() tea.Cmd {
+func (m Model) Init() tea.Cmd {
 	return textinput.Blink
 }
 
-func (m *applicationModel) focusedInput() *textinput.Model {
+func (m *Model) focusedInput() *textinput.Model {
 	switch m.step {
 	case nameStep:
 		return &m.nameInput
@@ -110,13 +120,15 @@ func (m *applicationModel) focusedInput() *textinput.Model {
 		return &m.countInput
 	case seedStep:
 		return &m.seedInput
-	default:
+	case fileNameStep:
 		return &m.fileNameInput
+	default:
+		return &m.templateNameInput
 	}
 }
 
 // focus переводит ввод на указанный элемент формы.
-func (m *applicationModel) focus(step int) tea.Cmd {
+func (m *Model) focus(step int) tea.Cmd {
 	m.nameInput.Blur()
 	m.typeInput.Blur()
 	m.minInput.Blur()
@@ -125,12 +137,13 @@ func (m *applicationModel) focus(step int) tea.Cmd {
 	m.countInput.Blur()
 	m.seedInput.Blur()
 	m.fileNameInput.Blur()
+	m.templateNameInput.Blur()
 	m.schemaFocus = false
 	m.step = step
 	return m.focusedInput().Focus()
 }
 
-func (m *applicationModel) focusSchema() {
+func (m *Model) focusSchema() {
 	m.nameInput.Blur()
 	m.typeInput.Blur()
 	m.minInput.Blur()
@@ -139,6 +152,7 @@ func (m *applicationModel) focusSchema() {
 	m.countInput.Blur()
 	m.seedInput.Blur()
 	m.fileNameInput.Blur()
+	m.templateNameInput.Blur()
 	m.schemaFocus = true
 	if m.selectedField >= len(m.fields) {
 		m.selectedField = len(m.fields) - 1
@@ -146,7 +160,7 @@ func (m *applicationModel) focusSchema() {
 }
 
 // isInputAvailable определяет, можно ли перейти к параметру для выбранного типа.
-func (m applicationModel) isInputAvailable(step int) bool {
+func (m Model) isInputAvailable(step int) bool {
 	fieldType := strings.ToLower(strings.TrimSpace(m.typeInput.Value()))
 	switch step {
 	case minStep, maxStep:
@@ -163,7 +177,7 @@ func isAutomaticStringFieldName(name string) bool {
 	return automatic
 }
 
-func (m *applicationModel) moveForm(direction int) tea.Cmd {
+func (m *Model) moveForm(direction int) tea.Cmd {
 	next := m.step
 	for {
 		next += direction
@@ -180,12 +194,12 @@ func (m *applicationModel) moveForm(direction int) tea.Cmd {
 	}
 }
 
-func (m *applicationModel) setStatus(message string, isError bool) {
+func (m *Model) setStatus(message string, isError bool) {
 	m.status = message
 	m.statusIsError = isError
 }
 
-func (m applicationModel) visibleSchemaRows() int {
+func (m Model) visibleSchemaRows() int {
 	rows := m.height - 24
 	if rows < 1 {
 		rows = 1

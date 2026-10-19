@@ -7,14 +7,18 @@ import (
 	tea "charm.land/bubbletea/v2"
 	"github.com/vexxy32/test-data-generator/internal/exporter"
 	"github.com/vexxy32/test-data-generator/internal/generator"
+	"github.com/vexxy32/test-data-generator/internal/templates"
 	"github.com/vexxy32/test-data-generator/internal/tui"
 )
 
 func main() {
 	// Здесь соединяются части программы: TUI получает функции генерации и экспорта.
 	services := tui.Services{
-		Generate: generator.GenerateRecords,
-		Export:   exporter.ExportToFile,
+		Generate:      generator.GenerateRecords,
+		Export:        exporter.ExportToFile,
+		SaveTemplate:  templates.Save,
+		LoadTemplate:  templates.Load,
+		ListTemplates: templates.List,
 	}
 
 	model := tui.NewModel(services)

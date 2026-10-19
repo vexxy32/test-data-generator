@@ -11,10 +11,18 @@ import (
 
 	tea "charm.land/bubbletea/v2"
 	"github.com/vexxy32/test-data-generator/internal/schema"
+	"github.com/vexxy32/test-data-generator/internal/templates"
+)
+
+const (
+	defaultNumberMin = 0
+	defaultNumberMax = 100
+	defaultStringMin = 1
+	defaultStringMax = 20
 )
 
 // clearForm очищает форму после добавления поля или отмены правки.
-func (m *applicationModel) clearForm() {
+func (m *Model) clearForm() {
 	m.nameInput.SetValue("")
 	m.typeInput.SetValue("")
 	m.minInput.SetValue("")
@@ -23,8 +31,100 @@ func (m *applicationModel) clearForm() {
 	m.editIndex = -1
 }
 
+// newTest очищает схему и результат, чтобы можно было создать другой набор данных.
+func (m *Model) newTest() tea.Cmd {
+	m.fields = nil
+	m.records = nil
+	m.outputPath = ""
+	m.selectedField = 0
+	m.clearForm()
+	m.countInput.SetValue("5")
+	m.seedInput.SetValue("")
+	m.fileNameInput.SetValue("generated_tests")
+	m.templateNameInput.SetValue("")
+	m.setStatus("Новый тест: добавь поля для новой схемы.", false)
+	return m.focus(nameStep)
+}
+
+// saveTemplate сохраняет текущую схему и настройки, без готовых записей и seed.
+func (m *Model) saveTemplate() {
+	if m.services.SaveTemplate == nil {
+		m.setStatus("Сохранение шаблонов недоступно.", true)
+		return
+	}
+	if strings.TrimSpace(m.templateNameInput.Value()) == "" {
+		m.setStatus("Укажи имя шаблона в строке «Шаблон».", true)
+		m.focus(templateNameStep)
+		return
+	}
+	count, err := strconv.Atoi(strings.TrimSpace(m.countInput.Value()))
+	if err != nil || count < 1 || count > maxRecordCount {
+		m.setStatus("Количество должно быть целым числом от 1 до 10000.", true)
+		m.focus(countStep)
+		return
+	}
+	tmpl := templates.Template{
+		Fields:   append([]schema.FieldDefinition(nil), m.fields...),
+		Count:    count,
+		FileName: strings.TrimSpace(m.fileNameInput.Value()),
+	}
+	path, err := m.services.SaveTemplate(m.templateNameInput.Value(), tmpl)
+	if err != nil {
+		m.setStatus("Не удалось сохранить шаблон: "+err.Error(), true)
+		return
+	}
+	m.setStatus("Шаблон сохранён: "+path, false)
+}
+
+// loadTemplate подставляет сохранённую схему в форму.
+func (m *Model) loadTemplate() tea.Cmd {
+	if m.services.LoadTemplate == nil {
+		m.setStatus("Загрузка шаблонов недоступна.", true)
+		return nil
+	}
+	if strings.TrimSpace(m.templateNameInput.Value()) == "" {
+		m.setStatus("Укажи имя шаблона в строке «Шаблон».", true)
+		return m.focus(templateNameStep)
+	}
+	tmpl, err := m.services.LoadTemplate(m.templateNameInput.Value())
+	if err != nil {
+		m.setStatus("Не удалось загрузить шаблон: "+err.Error(), true)
+		return nil
+	}
+	m.fields = append([]schema.FieldDefinition(nil), tmpl.Fields...)
+	m.countInput.SetValue(strconv.Itoa(tmpl.Count))
+	m.fileNameInput.SetValue(tmpl.FileName)
+	m.records = nil
+	m.outputPath = ""
+	m.selectedField = 0
+	m.clearForm()
+	m.setStatus(fmt.Sprintf("Шаблон %q загружен: %d полей, %d записей.", strings.TrimSpace(m.templateNameInput.Value()), len(m.fields), tmpl.Count), false)
+	return m.focus(nameStep)
+}
+
+// openTemplatePicker показывает сохранённые шаблоны для выбора стрелками.
+func (m *Model) openTemplatePicker() {
+	if m.services.ListTemplates == nil {
+		m.setStatus("Список шаблонов недоступен.", true)
+		return
+	}
+	names, err := m.services.ListTemplates()
+	if err != nil {
+		m.setStatus("Не удалось получить список шаблонов: "+err.Error(), true)
+		return
+	}
+	if len(names) == 0 {
+		m.setStatus("Шаблонов пока нет. Сначала сохрани схему через Ctrl+S.", true)
+		return
+	}
+	m.templateNames = names
+	m.selectedTemplate = 0
+	m.templatePicker = true
+	m.setStatus("Выбери шаблон стрелками и нажми Enter.", false)
+}
+
 // editField переносит выбранное поле из схемы обратно в форму.
-func (m *applicationModel) editField() tea.Cmd {
+func (m *Model) editField() tea.Cmd {
 	if !m.schemaFocus || len(m.fields) == 0 {
 		return nil
 	}
@@ -49,7 +149,7 @@ func (m *applicationModel) editField() tea.Cmd {
 }
 
 // deleteField удаляет выбранное поле и сбрасывает старый результат генерации.
-func (m *applicationModel) deleteField() {
+func (m *Model) deleteField() {
 	if !m.schemaFocus || len(m.fields) == 0 {
 		m.setStatus("Сначала выбери поле в схеме клавишей Tab.", true)
 		return
@@ -67,7 +167,7 @@ func (m *applicationModel) deleteField() {
 }
 
 // addField проверяет введённые параметры и добавляет поле или сохраняет его правку.
-func (m *applicationModel) addField() tea.Cmd {
+func (m *Model) addField() tea.Cmd {
 	name := strings.TrimSpace(m.nameInput.Value())
 	fieldType := strings.ToLower(strings.TrimSpace(m.typeInput.Value()))
 	if name == "" {
@@ -99,14 +199,15 @@ func (m *applicationModel) addField() tea.Cmd {
 
 	newField := schema.FieldDefinition{Name: name, Type: fieldType}
 	if (fieldType == "integer" || fieldType == "float" || fieldType == "string") && !isAutomaticStringFieldName(name) {
-		min, err := strconv.ParseFloat(strings.TrimSpace(m.minInput.Value()), 64)
+		defaultMin, defaultMax := defaultBounds(fieldType)
+		min, err := optionalFloat(m.minInput.Value(), defaultMin)
 		if err != nil || math.IsNaN(min) || math.IsInf(min, 0) {
-			m.setStatus("Введи минимум: число, а для string — длину строки.", true)
+			m.setStatus("Минимум должен быть числом, а для string — длиной строки.", true)
 			return m.focus(minStep)
 		}
-		max, err := strconv.ParseFloat(strings.TrimSpace(m.maxInput.Value()), 64)
+		max, err := optionalFloat(m.maxInput.Value(), defaultMax)
 		if err != nil || math.IsNaN(max) || math.IsInf(max, 0) {
-			m.setStatus("Введи максимум: число, а для string — длину строки.", true)
+			m.setStatus("Максимум должен быть числом, а для string — длиной строки.", true)
 			return m.focus(maxStep)
 		}
 		if max < min {
@@ -160,8 +261,24 @@ func (m *applicationModel) addField() tea.Cmd {
 	return m.focus(nameStep)
 }
 
+// defaultBounds задаёт значение для каждой пустой границы.
+func defaultBounds(fieldType string) (float64, float64) {
+	if fieldType == "string" {
+		return defaultStringMin, defaultStringMax
+	}
+	return defaultNumberMin, defaultNumberMax
+}
+
+func optionalFloat(value string, defaultValue float64) (float64, error) {
+	value = strings.TrimSpace(value)
+	if value == "" {
+		return defaultValue, nil
+	}
+	return strconv.ParseFloat(value, 64)
+}
+
 // preview создаёт записи один раз; эти же записи затем сохраняет savePreview.
-func (m *applicationModel) preview() tea.Cmd {
+func (m *Model) preview() tea.Cmd {
 	if len(m.fields) == 0 {
 		m.setStatus("Сначала добавь хотя бы одно поле клавишей +.", true)
 		return nil
@@ -188,7 +305,7 @@ func (m *applicationModel) preview() tea.Cmd {
 }
 
 // seed читает seed из формы или создаёт новый и оставляет его в форме для повторной генерации.
-func (m *applicationModel) seed() (uint64, error) {
+func (m *Model) seed() (uint64, error) {
 	value := strings.TrimSpace(m.seedInput.Value())
 	if value != "" {
 		return strconv.ParseUint(value, 10, 64)
@@ -205,7 +322,7 @@ func (m *applicationModel) seed() (uint64, error) {
 
 // savePreview записывает подготовленные данные в JSON и открывает папку результата.
 // Если предпросмотра ещё нет, сначала подготавливает записи.
-func (m *applicationModel) savePreview() tea.Cmd {
+func (m *Model) savePreview() tea.Cmd {
 	if len(m.records) == 0 || m.outputPath != "" {
 		return m.preview()
 	}

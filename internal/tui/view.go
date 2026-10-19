@@ -23,7 +23,7 @@ var (
 	panelStyle   = lipgloss.NewStyle().Border(lipgloss.RoundedBorder()).BorderForeground(lipgloss.Color("#506079")).Padding(0, 1)
 )
 
-func (m applicationModel) inputRow(index int, label string, input textinput.Model) string {
+func (m Model) inputRow(index int, label string, input textinput.Model) string {
 	marker := "  "
 	labelText := mutedStyle.Render(fmt.Sprintf("%-12s", label))
 	if !m.schemaFocus && m.step == index {
@@ -34,7 +34,7 @@ func (m applicationModel) inputRow(index int, label string, input textinput.Mode
 }
 
 // schemaView показывает добавленные поля и выделяет выбранное для правки.
-func (m applicationModel) schemaView(limit int) string {
+func (m Model) schemaView(limit int) string {
 	if len(m.fields) == 0 {
 		return mutedStyle.Render("Пока пусто. Заполни форму и нажми +.")
 	}
@@ -67,7 +67,7 @@ func (m applicationModel) schemaView(limit int) string {
 	return strings.Join(lines, "\n")
 }
 
-func (m applicationModel) resultsView() string {
+func (m Model) resultsView() string {
 	if len(m.records) == 0 {
 		return mutedStyle.Render("После сохранения здесь появится путь к файлу.")
 	}
@@ -78,7 +78,7 @@ func (m applicationModel) resultsView() string {
 }
 
 // previewView выводит первые три уже подготовленные записи.
-func (m applicationModel) previewView() string {
+func (m Model) previewView() string {
 	if len(m.records) == 0 {
 		return mutedStyle.Render("Нажми Ctrl+P, чтобы подготовить три записи для просмотра.")
 	}
@@ -91,18 +91,40 @@ func (m applicationModel) previewView() string {
 	return string(data)
 }
 
-func (m applicationModel) panel(heading, content string, width int) string {
+func (m Model) panel(heading, content string, width int) string {
 	return panelStyle.Width(width).Render(accentStyle.Render(heading) + "\n" + content)
 }
 
+// templatePickerView показывает список файлов вместо формы, пока пользователь выбирает шаблон.
+func (m Model) templatePickerView(width int) tea.View {
+	limit := min(12, max(3, m.height-7))
+	start := max(0, m.selectedTemplate-limit+1)
+	var lines []string
+	for i := start; i < len(m.templateNames) && i < start+limit; i++ {
+		line := fmt.Sprintf("  %s", m.templateNames[i])
+		if i == m.selectedTemplate {
+			line = accentStyle.Render("› " + m.templateNames[i])
+		}
+		lines = append(lines, line)
+	}
+	content := strings.Join(lines, "\n")
+	content += mutedStyle.Render(fmt.Sprintf("\n\n%d из %d", m.selectedTemplate+1, len(m.templateNames)))
+	screen := titleStyle.Render("ВЫБОР ШАБЛОНА") + "\n" + m.panel("СОХРАНЁННЫЕ ШАБЛОНЫ", content, width)
+	screen += "\n" + mutedStyle.Render("↑↓ выбрать · Enter загрузить · Esc назад")
+	return tea.NewView(screen)
+}
+
 // View собирает экран из формы, схемы, предпросмотра и результата.
-func (m applicationModel) View() tea.View {
+func (m Model) View() tea.View {
 	width := m.width - 4
 	if width < 28 {
 		width = 28
 	}
 	if width > 94 {
 		width = 94
+	}
+	if m.templatePicker {
+		return m.templatePickerView(width)
 	}
 	// На терминале 80x24 оставляем место для формы, схемы, результата и подсказок.
 	schemaRows := m.visibleSchemaRows()
@@ -126,9 +148,11 @@ func (m applicationModel) View() tea.View {
 	} else if fieldType == "string" {
 		form += "\n" + m.inputRow(minStep, "Мин. длина", m.minInput)
 		form += "\n" + m.inputRow(maxStep, "Макс. длина", m.maxInput)
+		form += "\n" + mutedStyle.Render("  Пустая длина: 1 .. 20")
 	} else {
 		form += "\n" + m.inputRow(minStep, "Минимум", m.minInput)
 		form += "\n" + m.inputRow(maxStep, "Максимум", m.maxInput)
+		form += "\n" + mutedStyle.Render("  Пустые границы: 0 .. 100")
 		if fieldType == "float" {
 			form += "\n" + m.inputRow(precisionStep, "Точность", m.precisionInput)
 		}
@@ -144,6 +168,8 @@ func (m applicationModel) View() tea.View {
 	screen.WriteString("ГЕНЕРАЦИЯ   " + m.inputRow(seedStep, "Seed", m.seedInput))
 	screen.WriteString("\n")
 	screen.WriteString("СОХРАНЕНИЕ " + m.inputRow(fileNameStep, "Имя файла", m.fileNameInput))
+	screen.WriteString("\n")
+	screen.WriteString("ШАБЛОН     " + m.inputRow(templateNameStep, "Имя шаблона", m.templateNameInput))
 	screen.WriteString("\n")
 	screen.WriteString(m.panel(fmt.Sprintf("СХЕМА · %d", len(m.fields)), m.schemaView(schemaRows), width))
 	screen.WriteString("\n")
@@ -166,7 +192,9 @@ func (m applicationModel) View() tea.View {
 		screen.WriteString(successStyle.Render("● " + m.status))
 	}
 	screen.WriteString("\n")
-	screen.WriteString(mutedStyle.Render("↑↓/Tab · + поле · P/Ctrl+P предпросмотр · Enter сохранить · E правка · Del удалить · O папка · Esc выход"))
+	screen.WriteString(mutedStyle.Render("Tab/↑↓ выбор · + поле · Ctrl+P просмотр · Enter создать JSON · Ctrl+N заново"))
+	screen.WriteString("\n")
+	screen.WriteString(mutedStyle.Render("Ctrl+S шаблон сохранить · Ctrl+L выбрать · E/Del поле · O папка · Esc выход"))
 
 	return tea.NewView(screen.String())
 }

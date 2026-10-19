@@ -3,7 +3,6 @@ package generator
 import (
 	"math"
 	"math/rand/v2"
-	"strings"
 
 	"github.com/vexxy32/test-data-generator/internal/schema"
 )
@@ -37,56 +36,62 @@ func generateFieldValue(field schema.FieldDefinition, firstName, surname string,
 // generateStringValue использует готовые значения для специальных имён полей.
 // Для обычного строкового поля создаёт строку заданной длины.
 func generateStringValue(field schema.FieldDefinition, firstName, surname string, randomGenerator *rand.Rand) string {
-	switch strings.ToLower(strings.TrimSpace(field.Name)) {
-	case "name", "names", "firstname", "firstnames", "first_name":
+	kind, automatic := schema.AutomaticStringKind(field.Name)
+
+	if !automatic {
+		return generateRandomString(field, randomGenerator)
+	}
+
+	switch kind {
+	case "name":
 		return firstName
 
-	case "surname", "surnames":
+	case "surname":
 		return surname
 
-	case "email", "emails":
+	case "email":
 		return randomEmail(firstName, surname, randomGenerator)
 
-	case "emaildomain", "emaildomains", "email_domain", "email_domains":
+	case "emaildomain":
 		return randomItem(emailDomains, randomGenerator)
 
-	case "city", "cities":
+	case "city":
 		return randomItem(cities, randomGenerator)
 
-	case "country", "countries":
+	case "country":
 		return randomItem(countries, randomGenerator)
 
-	case "company", "companies":
+	case "company":
 		return randomItem(companies, randomGenerator)
 
-	case "department", "departments":
+	case "department":
 		return randomItem(departments, randomGenerator)
 
-	case "jobtitle", "jobtitles", "job_title", "job_titles":
+	case "jobtitle":
 		return randomItem(jobTitles, randomGenerator)
 
-	case "streetaddress", "streetaddresses", "street_address", "street_addresses":
+	case "streetaddress":
 		return randomItem(streetAddresses, randomGenerator)
 
-	case "phonenumber", "phonenumbers", "phone_number", "phone_numbers":
+	case "phonenumber":
 		return randomItem(phoneNumbers, randomGenerator)
 
-	case "userrole", "userroles", "user_role", "user_roles":
+	case "userrole":
 		return randomItem(userRoles, randomGenerator)
 
-	case "status", "statuses":
+	case "status":
 		return randomItem(statuses, randomGenerator)
 
-	case "color", "colors":
+	case "color":
 		return randomItem(colors, randomGenerator)
 
-	case "currency", "currencies":
+	case "currency":
 		return randomItem(currencies, randomGenerator)
 
-	case "language", "languages":
+	case "language":
 		return randomItem(languages, randomGenerator)
 
-	case "contenttitle", "contenttitles", "content_title", "content_titles":
+	case "contenttitle":
 		return randomItem(contentTitles, randomGenerator)
 
 	default:

@@ -8,7 +8,7 @@ import (
 type folderOpenedMsg struct{ err error }
 
 // Update обрабатывает нажатия клавиш и сообщения от запущенных команд TUI.
-func (m applicationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
+func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	switch msg := msg.(type) {
 	case folderOpenedMsg:
 		if msg.err != nil {
@@ -35,12 +35,43 @@ func (m applicationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.countInput.SetWidth(inputWidth)
 		m.seedInput.SetWidth(inputWidth)
 		m.fileNameInput.SetWidth(inputWidth)
+		m.templateNameInput.SetWidth(inputWidth)
 		return m, nil
 
 	case tea.KeyPressMsg:
+		if m.templatePicker {
+			switch msg.String() {
+			case "ctrl+c":
+				return m, tea.Quit
+			case "esc":
+				m.templatePicker = false
+				m.setStatus("Выбор шаблона отменён.", false)
+			case "up":
+				if m.selectedTemplate > 0 {
+					m.selectedTemplate--
+				}
+			case "down":
+				if m.selectedTemplate+1 < len(m.templateNames) {
+					m.selectedTemplate++
+				}
+			case "enter":
+				m.templateNameInput.SetValue(m.templateNames[m.selectedTemplate])
+				m.templatePicker = false
+				return m, m.loadTemplate()
+			}
+			return m, nil
+		}
 		switch msg.String() {
 		case "ctrl+c":
 			return m, tea.Quit
+		case "ctrl+n":
+			return m, m.newTest()
+		case "ctrl+s":
+			m.saveTemplate()
+			return m, nil
+		case "ctrl+l":
+			m.openTemplatePicker()
+			return m, nil
 		case "esc":
 			if m.editIndex >= 0 {
 				m.clearForm()
@@ -55,7 +86,7 @@ func (m applicationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			return m, m.moveForm(1)
 		case "shift+tab":
 			if m.schemaFocus {
-				return m, m.focus(countStep)
+				return m, m.focus(templateNameStep)
 			}
 			return m, m.moveForm(-1)
 		case "up":
@@ -103,6 +134,12 @@ func (m applicationModel) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 					return m, nil
 				}
 				return m, openOutputFolder(m.outputPath)
+			case "s":
+				m.saveTemplate()
+				return m, nil
+			case "l":
+				m.openTemplatePicker()
+				return m, nil
 			}
 			return m, nil
 		}
