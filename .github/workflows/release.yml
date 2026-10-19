@@ -47,11 +47,16 @@ jobs:
         env:
           GH_TOKEN: ${{ github.token }}
         run: |
-          gh release create '${{ steps.version.outputs.tag }}' '.\release\test-data-generator-windows.zip' --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Test Data Generator ${{ steps.version.outputs.tag }}" --notes "## What's new in v0.2.1
+          gh release create '${{ steps.version.outputs.tag }}' '.\release\test-data-generator-windows.zip' --repo $env:GITHUB_REPOSITORY --target $env:GITHUB_SHA --title "Test Data Generator ${{ steps.version.outputs.tag }}" --notes "## Русский
 
-          - Added a seed field for reproducible test data. Reuse the same seed, schema, field order, and record count to generate the same JSON again.
-          - Linked name, surname, and email values within a record.
-          - Reserved _test_id so it cannot be added as a custom field.
-          - Improved validation, naming, comments, and test coverage.
+          - Добавлены шаблоны: сохранение схемы, количества записей и имени выходного файла, а также выбор шаблона в TUI.
+          - Небольшие улучшения: новый тест без перезапуска, значения по умолчанию для пустых границ и единый список автоматических строковых полей.
+
+          Скачай ZIP для Windows, распакуй и запусти TestDataGenerator.exe.
+
+          ## English
+
+          - Added templates for saving a schema, record count, and output filename, with an in-app picker.
+          - Small improvements: start a new test without restarting, default values for empty bounds, and unified automatic string fields.
 
           Download the Windows ZIP, extract it, and run TestDataGenerator.exe. Source code is available in this repository."
