@@ -23,18 +23,18 @@ const (
 )
 
 const (
-	maxRecordCount    = 10_000
+	maxRecordCount    = 100_000_000
 	maxStringLength   = 1_000
 	maxFloatPrecision = 6
 )
 
 // Services хранит операции, переданные в TUI из main.
 type Services struct {
-	Generate      func([]schema.FieldDefinition, int, uint64) []map[string]any
-	Export        func([]map[string]any, string) (string, error)
-	SaveTemplate  func(string, templates.Template) (string, error)
-	LoadTemplate  func(string) (templates.Template, error)
-	ListTemplates func() ([]string, error)
+	GenerateStream func([]schema.FieldDefinition, int, uint64, func(map[string]any) error) error
+	ExportStream   func(string, func(func(map[string]any) error) error) (string, error)
+	SaveTemplate   func(string, templates.Template) (string, error)
+	LoadTemplate   func(string) (templates.Template, error)
+	ListTemplates  func() ([]string, error)
 }
 
 // Model хранит состояние формы, схемы и подготовленного результата.

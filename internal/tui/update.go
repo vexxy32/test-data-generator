@@ -14,7 +14,7 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		if msg.err != nil {
 			m.setStatus("Не удалось открыть папку: "+msg.err.Error(), true)
 		} else {
-			m.setStatus("Папка с результатом открыта.", false)
+			m.setStatus(m.status+" Папка открыта.", false)
 		}
 		return m, nil
 	case tea.WindowSizeMsg:
@@ -153,8 +153,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 	}
 
 	input := m.focusedInput()
+	previousValue := input.Value()
 	var cmd tea.Cmd
 	*input, cmd = input.Update(msg)
+	if (m.step == countStep || m.step == seedStep) && input.Value() != previousValue {
+		m.records = nil
+		m.outputPath = ""
+		m.setStatus("Параметры изменены. Подготовь предпросмотр заново.", false)
+	}
 	if m.step == nameStep {
 		if automaticType, automatic := schema.AutomaticStringType(m.nameInput.Value()); automatic {
 			m.typeInput.SetValue(automaticType)

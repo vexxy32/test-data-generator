@@ -3,6 +3,7 @@ package tui
 import (
 	"encoding/json"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"charm.land/bubbles/v2/textinput"
@@ -64,6 +65,10 @@ func (m Model) schemaView(limit int) string {
 		}
 		lines = append(lines, line)
 	}
+	if len(m.fields) > limit {
+		end := min(start+limit, len(m.fields))
+		lines = append(lines, mutedStyle.Render(fmt.Sprintf("Поля %d–%d из %d · Tab на схему, ↑↓ листать", start+1, end, len(m.fields))))
+	}
 	return strings.Join(lines, "\n")
 }
 
@@ -72,7 +77,7 @@ func (m Model) resultsView() string {
 		return mutedStyle.Render("После сохранения здесь появится путь к файлу.")
 	}
 	if m.outputPath == "" {
-		return mutedStyle.Render("Предпросмотр готов. Нажми Enter, чтобы сохранить эти записи.")
+		return mutedStyle.Render("Предпросмотр готов. Нажми Enter, чтобы создать JSON со всеми записями.")
 	}
 	return "Файл: " + m.outputPath
 }
@@ -130,8 +135,14 @@ func (m Model) View() tea.View {
 	schemaRows := m.visibleSchemaRows()
 
 	var screen strings.Builder
+	recordCount := len(m.records)
+	if m.outputPath != "" {
+		if count, err := strconv.Atoi(strings.TrimSpace(m.countInput.Value())); err == nil {
+			recordCount = count
+		}
+	}
 	screen.WriteString(titleStyle.Render("TEST DATA LAB"))
-	screen.WriteString(mutedStyle.Render(fmt.Sprintf("   /   %d полей   /   %d записей", len(m.fields), len(m.records))))
+	screen.WriteString(mutedStyle.Render(fmt.Sprintf("   /   %d полей   /   %d записей", len(m.fields), recordCount)))
 	screen.WriteString("\n")
 
 	form := strings.Join([]string{
@@ -175,13 +186,13 @@ func (m Model) View() tea.View {
 	screen.WriteString("\n")
 	previewTitle := "ПРЕДПРОСМОТР"
 	if len(m.records) > 0 {
-		previewTitle = fmt.Sprintf("ПРЕДПРОСМОТР · первые %d из %d записей", min(3, len(m.records)), len(m.records))
+		previewTitle = fmt.Sprintf("ПРЕДПРОСМОТР · первые %d из %s записей", len(m.records), strings.TrimSpace(m.countInput.Value()))
 	}
 	screen.WriteString(m.panel(previewTitle, m.previewView(), width))
 	screen.WriteString("\n")
 	resultTitle := "РЕЗУЛЬТАТ"
-	if len(m.records) > 0 {
-		resultTitle = fmt.Sprintf("РЕЗУЛЬТАТ · %d записей по %d полям", len(m.records), len(m.fields))
+	if m.outputPath != "" {
+		resultTitle = fmt.Sprintf("РЕЗУЛЬТАТ · %d записей по %d полям", recordCount, len(m.fields))
 	}
 	screen.WriteString(m.panel(resultTitle, m.resultsView(), width))
 	screen.WriteString("\n")

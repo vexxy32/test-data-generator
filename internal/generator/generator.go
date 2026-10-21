@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"errors"
 	"math"
 	"math/rand/v2"
 
@@ -130,22 +131,31 @@ func generateRecord(fields []schema.FieldDefinition,
 	return record
 }
 
-// GenerateRecords создаёт указанное число записей и добавляет каждой номер _test_id.
-func GenerateRecords(
+// GenerateRecordsStream генерирует записи по одной и сразу передаёт каждую в обработчик onRecord.
+func GenerateRecordsStream(
 	fields []schema.FieldDefinition,
 	count int,
 	seed uint64,
-) []map[string]any {
+	onRecord func(record map[string]any) error,
+) error {
+	if count <= 0 {
+		return errors.New("количество записей должно быть больше нуля")
+	}
+	if onRecord == nil {
+		return errors.New("обработчик записи не задан")
+	}
+
 	pcg := rand.NewPCG(seed, 1)
 	randomGenerator := rand.New(pcg)
-
-	records := make([]map[string]any, 0, count)
 
 	for i := 0; i < count; i++ {
 		record := generateRecord(fields, randomGenerator)
 		record["_test_id"] = i + 1
-		records = append(records, record)
+
+		if err := onRecord(record); err != nil {
+			return err
+		}
 	}
 
-	return records
+	return nil
 }

@@ -15,16 +15,29 @@ func TestFormConnectsGenerationAndExport(t *testing.T) {
 	generated := false
 	exported := false
 	m := NewModel(Services{
-		Generate: func(fields []schema.FieldDefinition, count int, seed uint64) []map[string]any {
+		GenerateStream: func(fields []schema.FieldDefinition, count int, seed uint64, onRecord func(map[string]any) error) error {
 			generated = true
-			if count != 3 || seed != 500 || len(fields) != 1 || fields[0].Name != "age" || fields[0].Type != "integer" {
+			if (count != 3 && count != 5) || seed != 500 || len(fields) != 1 || fields[0].Name != "age" || fields[0].Type != "integer" {
 				t.Fatalf("unexpected generation request: fields=%+v count=%d seed=%d", fields, count, seed)
 			}
-			return []map[string]any{{"age": 21}}
+			for i := 1; i <= count; i++ {
+				if err := onRecord(map[string]any{"age": 20 + i, "_test_id": i}); err != nil {
+					return err
+				}
+			}
+			return nil
 		},
-		Export: func(records []map[string]any, name string) (string, error) {
+		ExportStream: func(name string, produceRecords func(func(map[string]any) error) error) (string, error) {
 			exported = true
-			if name != "sample" || len(records) != 1 {
+			var records []map[string]any
+			err := produceRecords(func(record map[string]any) error {
+				records = append(records, record)
+				return nil
+			})
+			if err != nil {
+				return "", err
+			}
+			if name != "sample" || len(records) != 5 || records[0]["age"] != 21 {
 				t.Fatalf("unexpected export request: name=%q records=%v", name, records)
 			}
 			return wantPath, nil
@@ -40,12 +53,12 @@ func TestFormConnectsGenerationAndExport(t *testing.T) {
 		t.Fatalf("field was not added: status=%q fields=%v", m.status, m.fields)
 	}
 
-	m.countInput.SetValue("3")
+	m.countInput.SetValue("5")
 	m.seedInput.SetValue("500")
 	m.fileNameInput.SetValue("sample")
 	m.preview()
-	if !generated || exported || m.outputPath != "" {
-		t.Fatalf("preview failed: generated=%v exported=%v path=%q", generated, exported, m.outputPath)
+	if !generated || exported || m.outputPath != "" || len(m.records) != 3 {
+		t.Fatalf("preview failed: generated=%v exported=%v path=%q records=%v", generated, exported, m.outputPath, m.records)
 	}
 	m.savePreview()
 	if !generated || !exported || m.outputPath != wantPath || m.statusIsError {
@@ -62,6 +75,18 @@ func TestReservedTestIDCannotBeAdded(t *testing.T) {
 	m.addField()
 	if !m.statusIsError || len(m.fields) != 0 {
 		t.Fatalf("reserved field was accepted: status=%q fields=%v", m.status, m.fields)
+	}
+}
+
+func TestChangingSeedInvalidatesPreview(t *testing.T) {
+	m := NewModel(Services{})
+	m.records = []map[string]any{{"_test_id": 1}}
+	m.outputPath = "output/old.json"
+	m.focus(seedStep)
+	updated, _ := m.Update(tea.KeyPressMsg{Code: '4', Text: "4"})
+	m = updated.(Model)
+	if len(m.records) != 0 || m.outputPath != "" {
+		t.Fatalf("old preview still active: records=%v path=%q", m.records, m.outputPath)
 	}
 }
 

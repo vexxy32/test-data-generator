@@ -10,7 +10,19 @@ import (
 	"github.com/vexxy32/test-data-generator/internal/schema"
 )
 
-func TestGenerateRecords(t *testing.T) {
+func collectRecords(t *testing.T, fields []schema.FieldDefinition, count int, seed uint64) []map[string]any {
+	t.Helper()
+	var records []map[string]any
+	if err := GenerateRecordsStream(fields, count, seed, func(record map[string]any) error {
+		records = append(records, record)
+		return nil
+	}); err != nil {
+		t.Fatal(err)
+	}
+	return records
+}
+
+func TestGenerateRecordsStream(t *testing.T) {
 	fields := []schema.FieldDefinition{
 		{Name: "age", Type: "integer", Min: 18, Max: 65},
 		{Name: "price", Type: "float", Min: 10, Max: 20, Precision: 2},
@@ -19,7 +31,7 @@ func TestGenerateRecords(t *testing.T) {
 		{Name: "active", Type: "boolean"},
 	}
 
-	records := GenerateRecords(fields, 100, 42)
+	records := collectRecords(t, fields, 100, 42)
 	if len(records) != 100 {
 		t.Fatalf("got %d records, want 100", len(records))
 	}
@@ -57,7 +69,7 @@ func TestNameSurnameAndEmailBelongToSameRecord(t *testing.T) {
 		{Name: "surnames", Type: "string"},
 	}
 
-	for _, record := range GenerateRecords(fields, 100, 42) {
+	for _, record := range collectRecords(t, fields, 100, 42) {
 		name := strings.ToLower(record["first_name"].(string))
 		surname := strings.ToLower(record["surnames"].(string))
 		email := record["EMAILS"].(string)
@@ -67,15 +79,15 @@ func TestNameSurnameAndEmailBelongToSameRecord(t *testing.T) {
 	}
 }
 
-func TestGenerateRecordsWithSameSeedReturnsSameData(t *testing.T) {
+func TestGenerateRecordsStreamWithSameSeedReturnsSameData(t *testing.T) {
 	fields := []schema.FieldDefinition{
 		{Name: "name", Type: "string"},
 		{Name: "email", Type: "string"},
 		{Name: "age", Type: "integer", Min: 18, Max: 65},
 	}
 
-	first := GenerateRecords(fields, 3, 2026)
-	second := GenerateRecords(fields, 3, 2026)
+	first := collectRecords(t, fields, 3, 2026)
+	second := collectRecords(t, fields, 3, 2026)
 	if !reflect.DeepEqual(first, second) {
 		t.Fatal("same seed produced different records")
 	}

@@ -9,16 +9,83 @@ import (
 	"strings"
 )
 
-// ExportToFile сохраняет записи в папку output и возвращает путь к JSON.
-func ExportToFile(records []map[string]any, fileName string) (string, error) {
-	return exportToDirectory(records, fileName, "output")
+// ExportToFileStream открывает файл и записывает в него записи по мере их получения от produceRecords.
+func ExportToFileStream(
+	fileName string,
+	produceRecords func(onRecord func(record map[string]any) error) error,
+) (string, error) {
+	return exportToDirectoryStream(fileName, "output", produceRecords)
 }
 
-// exportToDirectory проверяет имя и подбирает новый путь, не затирая старый файл.
-func exportToDirectory(records []map[string]any, fileName, outputDir string) (string, error) {
+func exportToDirectoryStream(
+	fileName, outputDir string,
+	produceRecords func(onRecord func(record map[string]any) error) error,
+) (path string, err error) {
+	if produceRecords == nil {
+		return "", errors.New("функция-источник записей не задана")
+	}
+
+	filePath, err := outputFilePath(fileName, outputDir)
+	if err != nil {
+		return "", err
+	}
+
+	newFile, err := os.OpenFile(filePath, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0644)
+	if err != nil {
+		return "", err
+	}
+
+	defer func() {
+		if closeErr := newFile.Close(); err == nil && closeErr != nil {
+			err = closeErr
+		}
+		if err != nil {
+			os.Remove(filePath)
+			path = ""
+		}
+	}()
+	if _, err := newFile.Write([]byte("[\n")); err != nil {
+		return "", err
+	}
+
+	firstRecord := true
+
+	onRecord := func(record map[string]any) error {
+		data, err := json.Marshal(record)
+		if err != nil {
+			return err
+		}
+
+		if !firstRecord {
+			if _, err := newFile.Write([]byte(",\n")); err != nil {
+				return err
+			}
+		}
+
+		if _, err := newFile.Write(data); err != nil {
+			return err
+		}
+
+		firstRecord = false
+		return nil
+	}
+
+	if err := produceRecords(onRecord); err != nil {
+		return "", err
+	}
+
+	if _, err := newFile.Write([]byte("\n]\n")); err != nil {
+		return "", err
+	}
+
+	return filePath, nil
+}
+
+// outputFilePath проверяет имя и подбирает новый путь, не затирая старый файл.
+func outputFilePath(fileName, outputDir string) (string, error) {
 	fileName = strings.TrimSpace(fileName)
 	if fileName == "" {
-		return "", errors.New("укажи имя файла")
+		fileName = "generated_tests"
 	}
 	if strings.ContainsAny(fileName, `\\/:*?"<>|`) {
 		return "", errors.New("имя файла не должно содержать \\ / : * ? \" < > или |")
@@ -49,13 +116,5 @@ func exportToDirectory(records []map[string]any, fileName, outputDir string) (st
 		path = filepath.Join(outputDir, fmt.Sprintf("%s_%d%s", nameWithoutExtension, copyNumber, extension))
 	}
 
-	data, err := json.MarshalIndent(records, "", "  ")
-	if err != nil {
-		return "", err
-	}
-	err = os.WriteFile(path, data, 0644)
-	if err != nil {
-		return "", err
-	}
 	return path, nil
 }

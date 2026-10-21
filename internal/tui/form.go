@@ -59,7 +59,7 @@ func (m *Model) saveTemplate() {
 	}
 	count, err := strconv.Atoi(strings.TrimSpace(m.countInput.Value()))
 	if err != nil || count < 1 || count > maxRecordCount {
-		m.setStatus("Количество должно быть целым числом от 1 до 10000.", true)
+		m.setStatus(fmt.Sprintf("Количество должно быть целым числом от 1 до %d.", maxRecordCount), true)
 		m.focus(countStep)
 		return
 	}
@@ -277,7 +277,7 @@ func optionalFloat(value string, defaultValue float64) (float64, error) {
 	return strconv.ParseFloat(value, 64)
 }
 
-// preview создаёт записи один раз; эти же записи затем сохраняет savePreview.
+// preview создаёт до трёх записей для просмотра. При сохранении они воспроизводятся по тому же seed.
 func (m *Model) preview() tea.Cmd {
 	if len(m.fields) == 0 {
 		m.setStatus("Сначала добавь хотя бы одно поле клавишей +.", true)
@@ -286,7 +286,7 @@ func (m *Model) preview() tea.Cmd {
 
 	count, err := strconv.Atoi(strings.TrimSpace(m.countInput.Value()))
 	if err != nil || count < 1 || count > maxRecordCount {
-		m.setStatus("Количество должно быть целым числом от 1 до 10000.", true)
+		m.setStatus(fmt.Sprintf("Количество должно быть целым числом от 1 до %d.", maxRecordCount), true)
 		m.focus(countStep)
 		return nil
 	}
@@ -298,9 +298,24 @@ func (m *Model) preview() tea.Cmd {
 		return nil
 	}
 
-	m.records = m.services.Generate(m.fields, count, seed)
+	if m.services.GenerateStream == nil {
+		m.setStatus("Генерация записей недоступна.", true)
+		return nil
+	}
+
+	previewCount := min(count, 3)
+	m.records = make([]map[string]any, 0, previewCount)
+	err = m.services.GenerateStream(m.fields, previewCount, seed, func(record map[string]any) error {
+		m.records = append(m.records, record)
+		return nil
+	})
+	if err != nil {
+		m.records = nil
+		m.setStatus("Не удалось подготовить записи: "+err.Error(), true)
+		return nil
+	}
 	m.outputPath = ""
-	m.setStatus(fmt.Sprintf("Предпросмотр готов: %d записей. Seed: %d. Нажми Enter, чтобы сохранить именно их.", count, seed), false)
+	m.setStatus(fmt.Sprintf("Предпросмотр готов: первые %d из %d записей. Seed: %d. Нажми Enter для сохранения.", previewCount, count, seed), false)
 	return nil
 }
 
@@ -320,14 +335,32 @@ func (m *Model) seed() (uint64, error) {
 	return seed, nil
 }
 
-// savePreview записывает подготовленные данные в JSON и открывает папку результата.
-// Если предпросмотра ещё нет, сначала подготавливает записи.
+// savePreview повторно генерирует записи с тем же seed и сразу сохраняет их потоком в JSON.
+// Если предпросмотра ещё нет, сначала подготавливает первые три записи.
 func (m *Model) savePreview() tea.Cmd {
 	if len(m.records) == 0 || m.outputPath != "" {
 		return m.preview()
 	}
 
-	path, err := m.services.Export(m.records, m.fileNameInput.Value())
+	if m.services.ExportStream == nil || m.services.GenerateStream == nil {
+		m.setStatus("Потоковое сохранение недоступно.", true)
+		return nil
+	}
+
+	count, err := strconv.Atoi(strings.TrimSpace(m.countInput.Value()))
+	if err != nil || count < 1 || count > maxRecordCount {
+		m.setStatus(fmt.Sprintf("Количество должно быть целым числом от 1 до %d.", maxRecordCount), true)
+		return m.focus(countStep)
+	}
+	seed, err := m.seed()
+	if err != nil {
+		m.setStatus("Seed должен быть целым неотрицательным числом.", true)
+		return m.focus(seedStep)
+	}
+
+	path, err := m.services.ExportStream(m.fileNameInput.Value(), func(onRecord func(map[string]any) error) error {
+		return m.services.GenerateStream(m.fields, count, seed, onRecord)
+	})
 	if err != nil {
 		m.setStatus("Не удалось сохранить JSON: "+err.Error(), true)
 		return nil
@@ -338,6 +371,6 @@ func (m *Model) savePreview() tea.Cmd {
 		m.setStatus("Файл сохранён, но не удалось определить полный путь: "+err.Error(), true)
 		return nil
 	}
-	m.setStatus(fmt.Sprintf("Готово. В файл сохранено записей: %d.", len(m.records)), false)
+	m.setStatus(fmt.Sprintf("Готово. В файл сохранено записей: %d. Seed: %d.", count, seed), false)
 	return openOutputFolder(m.outputPath)
 }

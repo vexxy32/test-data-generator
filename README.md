@@ -18,6 +18,7 @@ The application creates an `output` folder in its current working directory and 
 - Creates an automatic `_test_id` for every record, making a problematic input easy to find in a JSON file.
 - Supports a generation seed: reuse the same seed, schema, field order, and record count to reproduce the same data.
 - Shows a preview of the first three records; the previewed values are the exact values saved to JSON.
+- Generates and writes records one at a time, without keeping the complete data set in memory. The current UI limit is 100,000,000 records; large exports can take time and disk space.
 - Validates field names, ranges, record count, and string length.
 - Saves JSON files to the `output` folder.
 - Lets you choose a file name and keeps previous files by adding `_2`, `_3`, and so on.
@@ -82,7 +83,7 @@ For these field names, the application selects `string` automatically and does n
 - `E`: edit the selected field.
 - `Delete`: delete the selected field.
 - `P` or `Ctrl+P`: prepare a preview of the first three records.
-- `Enter`: save the prepared preview to a JSON file.
+- `Enter`: generate all requested records and save them to a JSON file; the previewed records appear first.
 - `Seed`: leave it empty to create a new random seed; keep or enter a seed to reproduce a generated data set.
 - `O`: open the output folder.
 - `Ctrl+N`: start a new test without restarting the application.
