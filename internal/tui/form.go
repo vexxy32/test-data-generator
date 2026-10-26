@@ -3,6 +3,7 @@ package tui
 import (
 	cryptorand "crypto/rand"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"math"
 	"path/filepath"
@@ -21,6 +22,8 @@ const (
 	defaultStringMax = 20
 )
 
+var errPreviewComplete = errors.New("предпросмотр заполнен")
+
 // clearForm очищает форму после добавления поля или отмены правки.
 func (m *Model) clearForm() {
 	m.nameInput.SetValue("")
@@ -28,6 +31,7 @@ func (m *Model) clearForm() {
 	m.minInput.SetValue("")
 	m.maxInput.SetValue("")
 	m.precisionInput.SetValue("2")
+	m.allowEmpty = false
 	m.editIndex = -1
 }
 
@@ -48,7 +52,7 @@ func (m *Model) newTest() tea.Cmd {
 
 // saveTemplate сохраняет текущую схему и настройки, без готовых записей и seed.
 func (m *Model) saveTemplate() {
-	if m.services.SaveTemplate == nil {
+	if m.services.Templates == nil {
 		m.setStatus("Сохранение шаблонов недоступно.", true)
 		return
 	}
@@ -68,7 +72,7 @@ func (m *Model) saveTemplate() {
 		Count:    count,
 		FileName: strings.TrimSpace(m.fileNameInput.Value()),
 	}
-	path, err := m.services.SaveTemplate(m.templateNameInput.Value(), tmpl)
+	path, err := m.services.Templates.Save(m.templateNameInput.Value(), tmpl)
 	if err != nil {
 		m.setStatus("Не удалось сохранить шаблон: "+err.Error(), true)
 		return
@@ -78,7 +82,7 @@ func (m *Model) saveTemplate() {
 
 // loadTemplate подставляет сохранённую схему в форму.
 func (m *Model) loadTemplate() tea.Cmd {
-	if m.services.LoadTemplate == nil {
+	if m.services.Templates == nil {
 		m.setStatus("Загрузка шаблонов недоступна.", true)
 		return nil
 	}
@@ -86,7 +90,7 @@ func (m *Model) loadTemplate() tea.Cmd {
 		m.setStatus("Укажи имя шаблона в строке «Шаблон».", true)
 		return m.focus(templateNameStep)
 	}
-	tmpl, err := m.services.LoadTemplate(m.templateNameInput.Value())
+	tmpl, err := m.services.Templates.Load(m.templateNameInput.Value())
 	if err != nil {
 		m.setStatus("Не удалось загрузить шаблон: "+err.Error(), true)
 		return nil
@@ -104,11 +108,11 @@ func (m *Model) loadTemplate() tea.Cmd {
 
 // openTemplatePicker показывает сохранённые шаблоны для выбора стрелками.
 func (m *Model) openTemplatePicker() {
-	if m.services.ListTemplates == nil {
+	if m.services.Templates == nil {
 		m.setStatus("Список шаблонов недоступен.", true)
 		return
 	}
-	names, err := m.services.ListTemplates()
+	names, err := m.services.Templates.List()
 	if err != nil {
 		m.setStatus("Не удалось получить список шаблонов: "+err.Error(), true)
 		return
@@ -130,6 +134,7 @@ func (m *Model) editField() tea.Cmd {
 	}
 	field := m.fields[m.selectedField]
 	m.editIndex = m.selectedField
+	m.allowEmpty = field.AllowEmpty
 	m.nameInput.SetValue(field.Name)
 	m.typeInput.SetValue(field.Type)
 	if field.Type != "boolean" && !isAutomaticStringFieldName(field.Name) {
@@ -197,7 +202,7 @@ func (m *Model) addField() tea.Cmd {
 		}
 	}
 
-	newField := schema.FieldDefinition{Name: name, Type: fieldType}
+	newField := schema.FieldDefinition{Name: name, Type: fieldType, AllowEmpty: m.allowEmpty}
 	if (fieldType == "integer" || fieldType == "float" || fieldType == "string") && !isAutomaticStringFieldName(name) {
 		defaultMin, defaultMax := defaultBounds(fieldType)
 		min, err := optionalFloat(m.minInput.Value(), defaultMin)
@@ -305,11 +310,14 @@ func (m *Model) preview() tea.Cmd {
 
 	previewCount := min(count, 3)
 	m.records = make([]map[string]any, 0, previewCount)
-	err = m.services.GenerateStream(m.fields, previewCount, seed, func(record map[string]any) error {
+	err = m.services.GenerateStream(m.fields, count, seed, func(record map[string]any) error {
 		m.records = append(m.records, record)
+		if len(m.records) == previewCount && previewCount < count {
+			return errPreviewComplete
+		}
 		return nil
 	})
-	if err != nil {
+	if err != nil && !errors.Is(err, errPreviewComplete) {
 		m.records = nil
 		m.setStatus("Не удалось подготовить записи: "+err.Error(), true)
 		return nil
@@ -358,7 +366,7 @@ func (m *Model) savePreview() tea.Cmd {
 		return m.focus(seedStep)
 	}
 
-	path, err := m.services.ExportStream(m.fileNameInput.Value(), func(onRecord func(map[string]any) error) error {
+	path, err := m.services.ExportStream.Export(m.fileNameInput.Value(), func(onRecord func(map[string]any) error) error {
 		return m.services.GenerateStream(m.fields, count, seed, onRecord)
 	})
 	if err != nil {

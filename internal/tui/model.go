@@ -15,6 +15,7 @@ const (
 	minStep
 	maxStep
 	precisionStep
+	allowEmptyStep
 	countStep
 	seedStep
 	fileNameStep
@@ -28,13 +29,23 @@ const (
 	maxFloatPrecision = 6
 )
 
+// Exporter сохраняет поток записей и возвращает путь к результату.
+type Exporter interface {
+	Export(string, func(func(map[string]any) error) error) (string, error)
+}
+
+// TemplateStore сохраняет, загружает и перечисляет шаблоны.
+type TemplateStore interface {
+	Save(string, templates.Template) (string, error)
+	Load(string) (templates.Template, error)
+	List() ([]string, error)
+}
+
 // Services хранит операции, переданные в TUI из main.
 type Services struct {
 	GenerateStream func([]schema.FieldDefinition, int, uint64, func(map[string]any) error) error
-	ExportStream   func(string, func(func(map[string]any) error) error) (string, error)
-	SaveTemplate   func(string, templates.Template) (string, error)
-	LoadTemplate   func(string) (templates.Template, error)
-	ListTemplates  func() ([]string, error)
+	ExportStream   Exporter
+	Templates      TemplateStore
 }
 
 // Model хранит состояние формы, схемы и подготовленного результата.
@@ -47,6 +58,7 @@ type Model struct {
 	minInput          textinput.Model
 	maxInput          textinput.Model
 	precisionInput    textinput.Model
+	allowEmpty        bool
 	countInput        textinput.Model
 	seedInput         textinput.Model
 	fileNameInput     textinput.Model
@@ -116,6 +128,8 @@ func (m *Model) focusedInput() *textinput.Model {
 		return &m.maxInput
 	case precisionStep:
 		return &m.precisionInput
+	case allowEmptyStep:
+		return nil
 	case countStep:
 		return &m.countInput
 	case seedStep:
@@ -140,7 +154,10 @@ func (m *Model) focus(step int) tea.Cmd {
 	m.templateNameInput.Blur()
 	m.schemaFocus = false
 	m.step = step
-	return m.focusedInput().Focus()
+	if input := m.focusedInput(); input != nil {
+		return input.Focus()
+	}
+	return nil
 }
 
 func (m *Model) focusSchema() {

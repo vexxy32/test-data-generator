@@ -1,6 +1,7 @@
 package exporter
 
 import (
+	"bufio"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -8,6 +9,15 @@ import (
 	"path/filepath"
 	"strings"
 )
+
+type JSONExporter struct{}
+
+func (e JSONExporter) Export(
+	fileName string,
+	produceRecords func(func(map[string]any) error) error,
+) (string, error) {
+	return ExportToFileStream(fileName, produceRecords)
+}
 
 // ExportToFileStream открывает файл и записывает в него записи по мере их получения от produceRecords.
 func ExportToFileStream(
@@ -44,25 +54,29 @@ func exportToDirectoryStream(
 			path = ""
 		}
 	}()
-	if _, err := newFile.Write([]byte("[\n")); err != nil {
+	writer := bufio.NewWriter(newFile)
+	if _, err := writer.WriteString("[\n"); err != nil {
 		return "", err
 	}
 
 	firstRecord := true
 
 	onRecord := func(record map[string]any) error {
-		data, err := json.Marshal(record)
+		data, err := json.MarshalIndent(record, "  ", "  ")
 		if err != nil {
 			return err
 		}
 
 		if !firstRecord {
-			if _, err := newFile.Write([]byte(",\n")); err != nil {
+			if _, err := writer.WriteString(",\n"); err != nil {
 				return err
 			}
 		}
 
-		if _, err := newFile.Write(data); err != nil {
+		if _, err := writer.WriteString("  "); err != nil {
+			return err
+		}
+		if _, err := writer.Write(data); err != nil {
 			return err
 		}
 
@@ -74,7 +88,10 @@ func exportToDirectoryStream(
 		return "", err
 	}
 
-	if _, err := newFile.Write([]byte("\n]\n")); err != nil {
+	if _, err := writer.WriteString("\n]\n"); err != nil {
+		return "", err
+	}
+	if err := writer.Flush(); err != nil {
 		return "", err
 	}
 

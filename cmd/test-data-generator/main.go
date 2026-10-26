@@ -14,11 +14,9 @@ import (
 func main() {
 	// Здесь соединяются части программы: TUI получает функции генерации и экспорта.
 	services := tui.Services{
+		Templates:      templates.FileStore{},
 		GenerateStream: generator.GenerateRecordsStream,
-		ExportStream:   exporter.ExportToFileStream,
-		SaveTemplate:   templates.Save,
-		LoadTemplate:   templates.Load,
-		ListTemplates:  templates.List,
+		ExportStream:   exporter.JSONExporter{},
 	}
 
 	model := tui.NewModel(services)

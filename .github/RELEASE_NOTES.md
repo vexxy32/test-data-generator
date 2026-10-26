@@ -1,19 +1,21 @@
 ## Русский
 
-В версии v0.4.0 генерация и сохранение JSON выполняются по одной записи. Программа больше не держит весь набор данных в памяти: это позволяет создавать гораздо более крупные файлы. Максимальное количество записей в интерфейсе увеличено до 100 000 000.
+В версии v0.5.0 добавлен блок «ФЛАГИ ПОЛЯ». Флаг «Пустое значение» позволяет намеренно добавить нестандартные данные: `""` для строковых полей и `null` для числовых и логических. Хотя бы одна запись в файле получит эти значения для всех полей с включённым флагом; выбор воспроизводится по seed.
 
-- Предпросмотр показывает первые три записи. При сохранении те же схема и seed воспроизводят их в начале полного файла.
-- Список полей прокручивается стрелками и показывает, какая часть схемы сейчас видна.
-- Существующие файлы не перезаписываются: к имени нового файла добавляется номер.
+- Флаг сохраняется и загружается вместе с шаблоном.
+- Предпросмотр первых трёх записей снова точно совпадает с началом полного файла даже при включённом флаге.
+- JSON снова форматируется с отступами и строками для каждого поля; потоковая запись сохранена.
+- Связи внутри программы для экспорта и хранения шаблонов оформлены через небольшие интерфейсы без изменения пользовательских команд.
 
-Скачай ZIP для Windows, распакуй и запусти `TestDataGenerator.exe`. Длительность создания больших файлов зависит от количества полей и скорости диска; во время генерации интерфейс ожидает завершения записи.
+Скачай ZIP для Windows, распакуй и запусти `TestDataGenerator.exe`. Новые JSON-файлы будут форматированными; уже созданные файлы не меняются.
 
 ## English
 
-Version v0.4.0 generates and writes JSON one record at a time. The application no longer keeps the complete data set in memory, enabling much larger files. The UI limit is now 100,000,000 records.
+Version v0.5.0 adds a **FIELD FLAGS** panel. The **Empty value** flag deliberately inserts edge cases: `""` for strings and `null` for numeric and boolean fields. At least one record in each file gets these values for every enabled field; the choice is reproducible with the seed.
 
-- The preview shows the first three records; saving reproduces them at the start of the complete file using the same schema and seed.
-- The field list scrolls with the arrow keys and shows the visible range.
-- Existing output files are preserved by adding a number to new filenames.
+- The flag is stored in and restored from templates.
+- The first three previewed records match the beginning of the complete file even with the flag enabled.
+- JSON records are indented across multiple lines again while export remains streaming.
+- Export and template storage are now connected through small interfaces, without changing the user controls.
 
-Download the Windows ZIP, extract it, and run `TestDataGenerator.exe`. Large exports depend on field count and disk speed; the interface waits while the file is being written.
+Download the Windows ZIP, extract it, and run `TestDataGenerator.exe`. Newly generated JSON files use the readable format; existing files are unchanged.

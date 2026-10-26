@@ -118,6 +118,10 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 				return m, nil
 			}
 		case "enter":
+			if !m.schemaFocus && m.step == allowEmptyStep {
+				m.toggleAllowEmpty()
+				return m, nil
+			}
 			return m, m.savePreview()
 		case "ctrl+p":
 			return m, m.preview()
@@ -152,6 +156,12 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 
+	if m.step == allowEmptyStep && !m.schemaFocus {
+		if key, ok := msg.(tea.KeyPressMsg); ok && key.Code == ' ' {
+			m.toggleAllowEmpty()
+		}
+		return m, nil
+	}
 	input := m.focusedInput()
 	previousValue := input.Value()
 	var cmd tea.Cmd
@@ -167,4 +177,16 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, cmd
+}
+
+func (m *Model) toggleAllowEmpty() {
+	if !m.isInputAvailable(allowEmptyStep) {
+		return
+	}
+	m.allowEmpty = !m.allowEmpty
+	if m.allowEmpty {
+		m.setStatus("Пустое значение для поля включено.", false)
+	} else {
+		m.setStatus("Пустое значение для поля выключено.", false)
+	}
 }

@@ -14,6 +14,20 @@ const templatesDir = "templates"
 const maxTemplateRecords = 10_000
 const maxTemplateStringLength = 1_000
 
+type FileStore struct{}
+
+func (FileStore) Save(name string, template Template) (string, error) {
+	return Save(name, template)
+}
+
+func (FileStore) Load(name string) (Template, error) {
+	return Load(name)
+}
+
+func (FileStore) List() ([]string, error) {
+	return List()
+}
+
 // Template хранит настройки генерации без сгенерированных данных.
 type Template struct {
 	Fields   []schema.FieldDefinition `json:"fields"`

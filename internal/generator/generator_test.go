@@ -92,3 +92,31 @@ func TestGenerateRecordsStreamWithSameSeedReturnsSameData(t *testing.T) {
 		t.Fatal("same seed produced different records")
 	}
 }
+
+func TestAllowEmptyForEveryFieldType(t *testing.T) {
+	fields := []schema.FieldDefinition{
+		{Name: "name", Type: "string", AllowEmpty: true},
+		{Name: "age", Type: "integer", Min: 18, Max: 65, AllowEmpty: true},
+		{Name: "price", Type: "float", Min: 1, Max: 10, AllowEmpty: true},
+		{Name: "active", Type: "boolean", AllowEmpty: true},
+	}
+	records := collectRecords(t, fields, 10, 42)
+	foundEmpty := false
+	for _, record := range records {
+		if record["name"] == "" {
+			foundEmpty = true
+			for _, name := range []string{"age", "price", "active"} {
+				value, exists := record[name]
+				if !exists || value != nil {
+					t.Fatalf("field %q should be null in empty record: %v", name, record)
+				}
+			}
+		}
+	}
+	if !foundEmpty {
+		t.Fatal("no empty record was generated")
+	}
+	if !reflect.DeepEqual(records, collectRecords(t, fields, 10, 42)) {
+		t.Fatal("empty values were not reproducible with the same seed")
+	}
+}

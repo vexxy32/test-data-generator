@@ -41,6 +41,10 @@ func TestExportToFileStreamKeepsPreviousResult(t *testing.T) {
 	if len(decoded) != 2 || decoded[0]["age"] != 25 || decoded[1]["age"] != 30 {
 		t.Fatalf("unexpected JSON: %s", data)
 	}
+	want := "[\n  {\n    \"age\": 25\n  },\n  {\n    \"age\": 30\n  }\n]\n"
+	if string(data) != want {
+		t.Fatalf("unexpected JSON formatting:\n%s", data)
+	}
 }
 
 func TestExportToFileStreamRemovesIncompleteFile(t *testing.T) {

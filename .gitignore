@@ -7,7 +7,7 @@
 # Generated test data
 output/
 generated_tests.json
-templates/
+/templates/
 
 # Release packages created locally
 release/

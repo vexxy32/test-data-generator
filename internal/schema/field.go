@@ -4,12 +4,14 @@ import "strings"
 
 // FieldDefinition описывает поле будущей записи. Min и Max задают диапазон
 // чисел или длину обычной строки; Precision нужен только для float.
+// AllowEmpty разрешает пустую строку для string или null для остальных типов.
 type FieldDefinition struct {
-	Name      string  `json:"name"`
-	Type      string  `json:"type"`
-	Min       float64 `json:"min"`
-	Max       float64 `json:"max"`
-	Precision int     `json:"precision"`
+	Name       string  `json:"name"`
+	Type       string  `json:"type"`
+	Min        float64 `json:"min"`
+	Max        float64 `json:"max"`
+	Precision  int     `json:"precision"`
+	AllowEmpty bool    `json:"allowEmpty"`
 }
 
 // automaticFields хранит все допустимые названия специальных строковых полей.

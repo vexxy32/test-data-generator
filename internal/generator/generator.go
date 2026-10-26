@@ -120,6 +120,7 @@ func generateRandomString(field schema.FieldDefinition, randomGenerator *rand.Ra
 // generateRecord собирает одну запись; имя, фамилия и email в ней согласованы.
 func generateRecord(fields []schema.FieldDefinition,
 	randomGenerator *rand.Rand) map[string]any {
+
 	record := make(map[string]any)
 
 	firstName := randomItem(firstNames, randomGenerator)
@@ -138,6 +139,7 @@ func GenerateRecordsStream(
 	seed uint64,
 	onRecord func(record map[string]any) error,
 ) error {
+
 	if count <= 0 {
 		return errors.New("количество записей должно быть больше нуля")
 	}
@@ -147,11 +149,23 @@ func GenerateRecordsStream(
 
 	pcg := rand.NewPCG(seed, 1)
 	randomGenerator := rand.New(pcg)
+	specialRandom := rand.New(rand.NewPCG(seed, 2))
+	emptyRecordIndex := specialRandom.IntN(count)
 
 	for i := 0; i < count; i++ {
 		record := generateRecord(fields, randomGenerator)
+		if i == emptyRecordIndex {
+			for _, field := range fields {
+				if field.AllowEmpty {
+					if field.Type == "string" {
+						record[field.Name] = ""
+					} else {
+						record[field.Name] = nil
+					}
+				}
+			}
+		}
 		record["_test_id"] = i + 1
-
 		if err := onRecord(record); err != nil {
 			return err
 		}

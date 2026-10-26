@@ -6,9 +6,34 @@ import (
 	"testing"
 
 	tea "charm.land/bubbletea/v2"
+	"github.com/vexxy32/test-data-generator/internal/generator"
 	"github.com/vexxy32/test-data-generator/internal/schema"
 	"github.com/vexxy32/test-data-generator/internal/templates"
 )
+
+type testExporterFunc func(string, func(func(map[string]any) error) error) (string, error)
+
+func (f testExporterFunc) Export(name string, produceRecords func(func(map[string]any) error) error) (string, error) {
+	return f(name, produceRecords)
+}
+
+type testTemplateStore struct {
+	save func(string, templates.Template) (string, error)
+	load func(string) (templates.Template, error)
+	list func() ([]string, error)
+}
+
+func (s testTemplateStore) Save(name string, tmpl templates.Template) (string, error) {
+	return s.save(name, tmpl)
+}
+
+func (s testTemplateStore) Load(name string) (templates.Template, error) {
+	return s.load(name)
+}
+
+func (s testTemplateStore) List() ([]string, error) {
+	return s.list()
+}
 
 func TestFormConnectsGenerationAndExport(t *testing.T) {
 	wantPath := filepath.Join(t.TempDir(), "output", "sample.json")
@@ -27,7 +52,7 @@ func TestFormConnectsGenerationAndExport(t *testing.T) {
 			}
 			return nil
 		},
-		ExportStream: func(name string, produceRecords func(func(map[string]any) error) error) (string, error) {
+		ExportStream: testExporterFunc(func(name string, produceRecords func(func(map[string]any) error) error) (string, error) {
 			exported = true
 			var records []map[string]any
 			err := produceRecords(func(record map[string]any) error {
@@ -41,7 +66,7 @@ func TestFormConnectsGenerationAndExport(t *testing.T) {
 				t.Fatalf("unexpected export request: name=%q records=%v", name, records)
 			}
 			return wantPath, nil
-		},
+		}),
 	})
 
 	m.nameInput.SetValue("age")
@@ -63,6 +88,83 @@ func TestFormConnectsGenerationAndExport(t *testing.T) {
 	m.savePreview()
 	if !generated || !exported || m.outputPath != wantPath || m.statusIsError {
 		t.Fatalf("generation/export failed: generated=%v exported=%v path=%q status=%q", generated, exported, m.outputPath, m.status)
+	}
+}
+
+func TestAllowEmptyToggleIsSavedWithField(t *testing.T) {
+	m := NewModel(Services{})
+	m.nameInput.SetValue("name")
+	m.typeInput.SetValue("string")
+	m.focus(allowEmptyStep)
+	updated, _ := m.Update(tea.KeyPressMsg{Code: ' ', Text: " "})
+	m = updated.(Model)
+	if !m.allowEmpty {
+		t.Fatal("space did not enable empty strings")
+	}
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	if m.allowEmpty {
+		t.Fatal("enter did not disable empty strings")
+	}
+	updated, _ = m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	m.addField()
+	if m.statusIsError || len(m.fields) != 1 || !m.fields[0].AllowEmpty {
+		t.Fatalf("empty-string flag was not saved: status=%q fields=%+v", m.status, m.fields)
+	}
+	m.focusSchema()
+	m.editField()
+	if !m.allowEmpty {
+		t.Fatal("editing did not restore empty-string flag")
+	}
+}
+
+func TestAllowEmptyToggleWorksForInteger(t *testing.T) {
+	m := NewModel(Services{})
+	m.nameInput.SetValue("age")
+	m.typeInput.SetValue("integer")
+	m.minInput.SetValue("18")
+	m.maxInput.SetValue("65")
+	m.focus(allowEmptyStep)
+	updated, _ := m.Update(tea.KeyPressMsg{Code: tea.KeyEnter})
+	m = updated.(Model)
+	m.addField()
+	if m.statusIsError || len(m.fields) != 1 || !m.fields[0].AllowEmpty {
+		t.Fatalf("empty-value flag was not saved for integer: status=%q fields=%+v", m.status, m.fields)
+	}
+}
+
+func TestEmptyStringPreviewMatchesSavedRecords(t *testing.T) {
+	var saved []map[string]any
+	m := NewModel(Services{
+		GenerateStream: generator.GenerateRecordsStream,
+		ExportStream: testExporterFunc(func(_ string, produceRecords func(func(map[string]any) error) error) (string, error) {
+			err := produceRecords(func(record map[string]any) error {
+				saved = append(saved, record)
+				return nil
+			})
+			return filepath.Join(t.TempDir(), "result.json"), err
+		}),
+	})
+	m.fields = []schema.FieldDefinition{{Name: "name", Type: "string", AllowEmpty: true}}
+	m.countInput.SetValue("20")
+	m.seedInput.SetValue("500")
+	m.preview()
+	if m.statusIsError || len(m.records) != 3 {
+		t.Fatalf("preview failed: status=%q records=%v", m.status, m.records)
+	}
+	m.savePreview()
+	if m.statusIsError || len(saved) != 20 || !reflect.DeepEqual(m.records, saved[:3]) {
+		t.Fatalf("preview differs from saved data: status=%q preview=%v saved=%v", m.status, m.records, saved)
+	}
+	foundEmpty := false
+	for _, record := range saved {
+		if record["name"] == "" {
+			foundEmpty = true
+		}
+	}
+	if !foundEmpty {
+		t.Fatal("enabled empty-string flag produced no empty string")
 	}
 }
 
@@ -139,19 +241,18 @@ func TestTemplateSaveAndLoadUpdatesForm(t *testing.T) {
 	}
 	saved := false
 	m := NewModel(Services{
-		SaveTemplate: func(name string, tmpl templates.Template) (string, error) {
+		Templates: testTemplateStore{save: func(name string, tmpl templates.Template) (string, error) {
 			if name != "people" || !reflect.DeepEqual(tmpl, want) {
 				t.Fatalf("unexpected save: name=%q template=%+v", name, tmpl)
 			}
 			saved = true
 			return "templates/people.json", nil
-		},
-		LoadTemplate: func(name string) (templates.Template, error) {
+		}, load: func(name string) (templates.Template, error) {
 			if name != "people" {
 				t.Fatalf("unexpected load name: %q", name)
 			}
 			return want, nil
-		},
+		}},
 	})
 	m.fields = append([]schema.FieldDefinition(nil), want.Fields...)
 	m.countInput.SetValue("12")
@@ -172,10 +273,9 @@ func TestTemplateSaveAndLoadUpdatesForm(t *testing.T) {
 
 func TestTemplatePickerLoadsSelectedTemplate(t *testing.T) {
 	m := NewModel(Services{
-		ListTemplates: func() ([]string, error) {
+		Templates: testTemplateStore{list: func() ([]string, error) {
 			return []string{"first.json", "second.json"}, nil
-		},
-		LoadTemplate: func(name string) (templates.Template, error) {
+		}, load: func(name string) (templates.Template, error) {
 			if name != "second.json" {
 				t.Fatalf("selected wrong template: %q", name)
 			}
@@ -183,7 +283,7 @@ func TestTemplatePickerLoadsSelectedTemplate(t *testing.T) {
 				Fields: []schema.FieldDefinition{{Name: "city", Type: "string"}},
 				Count:  10, FileName: "cities",
 			}, nil
-		},
+		}},
 	})
 	updated, _ := m.Update(tea.KeyPressMsg{Code: 'l', Mod: tea.ModCtrl})
 	m = updated.(Model)

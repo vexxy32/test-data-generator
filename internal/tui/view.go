@@ -34,6 +34,21 @@ func (m Model) inputRow(index int, label string, input textinput.Model) string {
 	return marker + labelText + input.View()
 }
 
+func (m Model) flagRow(step int, labelText string, enabled bool) string {
+	marker := "  "
+	label := mutedStyle.Render(labelText)
+	value := "[нет]"
+	if enabled {
+		value = "[да]"
+	}
+	if !m.schemaFocus && m.step == step {
+		marker = accentStyle.Render("› ")
+		label = accentStyle.Render(labelText)
+		value = accentStyle.Render(value)
+	}
+	return marker + label + "  " + value
+}
+
 // schemaView показывает добавленные поля и выделяет выбранное для правки.
 func (m Model) schemaView(limit int) string {
 	if len(m.fields) == 0 {
@@ -59,6 +74,9 @@ func (m Model) schemaView(limit int) string {
 			}
 		} else if field.Type == "string" && !isAutomaticStringFieldName(field.Name) {
 			line += fmt.Sprintf("  длина %g .. %g", field.Min, field.Max)
+		}
+		if field.AllowEmpty {
+			line += "  [пустые]"
 		}
 		if m.schemaFocus && i == m.selectedField {
 			line = accentStyle.Render(line)
@@ -173,6 +191,10 @@ func (m Model) View() tea.View {
 		formTitle = fmt.Sprintf("РЕДАКТИРОВАНИЕ ПОЛЯ %02d", m.editIndex+1)
 	}
 	screen.WriteString(m.panel(formTitle, form, width))
+	screen.WriteString("\n")
+	flags := m.flagRow(allowEmptyStep, "Пустое значение", m.allowEmpty)
+	flags += mutedStyle.Render("\n  Пробел или Enter — переключить")
+	screen.WriteString(m.panel("ФЛАГИ ПОЛЯ", flags, width))
 	screen.WriteString("\n")
 	screen.WriteString("ГЕНЕРАЦИЯ   " + m.inputRow(countStep, "Количество", m.countInput))
 	screen.WriteString("\n")
